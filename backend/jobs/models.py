@@ -9,28 +9,28 @@ from users.models import User
 
 class Job(models.Model):
     """
-    Job posting by consumers
-    Can be bid on by masons and traders
+    Job posting by customers
+    For constructor jobs (large projects) or worker jobs (freelance work)
     """
     
     class JobType(models.TextChoices):
-        REPAIR = 'REPAIR', 'Repair'
-        CONSTRUCTION = 'CONSTRUCTION', 'Construction'
+        CONSTRUCTOR_JOB = 'CONSTRUCTOR_JOB', 'Constructor Job (Large Project)'
+        WORKER_JOB = 'WORKER_JOB', 'Worker Job (Freelance Work)'
     
     class Status(models.TextChoices):
-        OPEN = 'OPEN', 'Open for Bidding'
+        OPEN = 'OPEN', 'Open'
         IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
         COMPLETED = 'COMPLETED', 'Completed'
         CANCELLED = 'CANCELLED', 'Cancelled'
     
     id = models.BigAutoField(primary_key=True)
     
-    # Consumer who posted the job
-    consumer = models.ForeignKey(
+    # Customer who posted the job
+    customer = models.ForeignKey(
         User, 
         on_delete=models.CASCADE, 
         related_name='jobs_posted',
-        limit_choices_to={'role': 'CONSUMER'}
+        limit_choices_to={'role': 'CUSTOMER'}
     )
     
     # Job details
@@ -58,15 +58,6 @@ class Job(models.Model):
     # Status
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
     
-    # Selected provider (mason/trader who won the bid)
-    selected_provider = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='jobs_won'
-    )
-    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -76,14 +67,15 @@ class Job(models.Model):
         db_table = 'jobs'
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['consumer']),
+            models.Index(fields=['customer']),
             models.Index(fields=['status']),
+            models.Index(fields=['job_type']),
             models.Index(fields=['latitude', 'longitude']),
             models.Index(fields=['-created_at']),
         ]
     
     def __str__(self):
-        return f"{self.title} by {self.consumer.name}"
+        return f"{self.title} by {self.customer.name}"
 
 
 class JobImage(models.Model):
