@@ -48,16 +48,41 @@ class SupabaseAuthentication(authentication.BaseAuthentication):
                     'email': email,
                     'name': user_metadata.get('name', email.split('@')[0]),
                     'phone': user_metadata.get('phone'),
+                    'role': user_metadata.get('role', 'CUSTOMER'),
+                    'latitude': user_metadata.get('latitude'),
+                    'longitude': user_metadata.get('longitude'),
                 }
             )
             
-            # Update email and phone if they changed in Supabase
+            # Update user details if they changed in Supabase metadata
+            should_save = False
+            
             if email and user.email != email:
                 user.email = email
-                user.save()
-            
+                should_save = True
+                
+            # Update fields from metadata if they exist and are different
             if user_metadata.get('phone') and user.phone != user_metadata.get('phone'):
                 user.phone = user_metadata.get('phone')
+                should_save = True
+                
+            if user_metadata.get('role') and user.role != user_metadata.get('role'):
+                user.role = user_metadata.get('role')
+                should_save = True
+                
+            if user_metadata.get('name') and user.name != user_metadata.get('name'):
+                user.name = user_metadata.get('name')
+                should_save = True
+                
+            if user_metadata.get('latitude') and user.latitude != user_metadata.get('latitude'):
+                user.latitude = user_metadata.get('latitude')
+                should_save = True
+                
+            if user_metadata.get('longitude') and user.longitude != user_metadata.get('longitude'):
+                user.longitude = user_metadata.get('longitude')
+                should_save = True
+                
+            if should_save:
                 user.save()
             
             return (user, token)

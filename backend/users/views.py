@@ -24,12 +24,8 @@ class ProfileCompletionView(APIView):
     def post(self, request):
         user = request.user
         
-        # Check if profile already completed
-        if user.name and user.role:
-            return Response({
-                'error': 'Profile already completed',
-                'user': UserSerializer(user).data
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # We allow profile completion even if name/role exists
+        # This allows updating/fixing profiles or adding role-specific details
         
         serializer = ProfileCompletionSerializer(data=request.data)
         if not serializer.is_valid():
