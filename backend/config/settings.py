@@ -28,9 +28,6 @@ INSTALLED_APPS = [
     # Local apps
     'users',
     'jobs',
-    'bids',
-    'ratings',
-    'ai_engine',
 ]
 
 MIDDLEWARE = [
@@ -64,12 +61,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Database - Using SQLite for quick start
+# Database - Supabase Postgres
 DATABASES = {
     'default': {
-        'ENGINE': config('DATABASE_ENGINE', default='django.db.backends.sqlite3'),
-        'NAME': BASE_DIR / config('DATABASE_NAME', default='db.sqlite3'),
-        # PostgreSQL settings (used when DATABASE_ENGINE is postgresql)
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('DATABASE_NAME', default='postgres'),
         'USER': config('DATABASE_USER', default='postgres'),
         'PASSWORD': config('DATABASE_PASSWORD', default=''),
         'HOST': config('DATABASE_HOST', default='localhost'),
@@ -113,7 +109,7 @@ AUTHENTICATION_BACKENDS = [
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'users.authentication.SupabaseAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -122,13 +118,10 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
-# JWT Settings
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-}
+# Supabase Settings
+SUPABASE_URL = config('SUPABASE_URL', default='')
+SUPABASE_KEY = config('SUPABASE_KEY', default='')
+SUPABASE_JWT_SECRET = config('SUPABASE_JWT_SECRET', default='')
 
 # CORS Settings
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
@@ -137,26 +130,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 
-# Cloudinary settings
+# Cloudinary settings (for image uploads)
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME', default=''),
     'API_KEY': config('CLOUDINARY_API_KEY', default=''),
     'API_SECRET': config('CLOUDINARY_API_SECRET', default=''),
 }
-
-# AI Settings
-IMAGE_TO_IMAGE_API_KEY = config('IMAGE_TO_IMAGE_API_KEY', default='')
-IMAGE_TO_IMAGE_API_URL = config('IMAGE_TO_IMAGE_API_URL', default='')
-
-# SMS Settings
-SMS_PROVIDER = config('SMS_PROVIDER', default='console')  # 'msg91', 'twilio', or 'console'
-
-# MSG91 Configuration
-MSG91_AUTH_KEY = config('MSG91_AUTH_KEY', default='')
-MSG91_TEMPLATE_ID = config('MSG91_TEMPLATE_ID', default='')
-MSG91_SENDER_ID = config('MSG91_SENDER_ID', default='MSGTST')
-
-# Twilio Configuration
-TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
-TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
-TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')
