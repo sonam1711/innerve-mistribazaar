@@ -1,164 +1,235 @@
-# innerve-mistribazaar
+# Mistribazar Frontend
+
+React.js frontend for the Mistribazar construction marketplace platform.
+
+## Features
+
+- **Role-based dashboard** (Consumer, Mason, Trader)
+- **Job browsing and creation**
+- **Real-time bidding system**
+- **AI Budget Estimator** (Conversational flow)
+- **AI Room Visualizer** (Before/After comparison)
+- **User profile management**
+- **Responsive design** (Mobile-first)
+
+## Tech Stack
+
+- React 18
+- Vite
+- React Router v6
+- Zustand (State management)
+- Axios (API calls)
+- Tailwind CSS
+- Lucide Icons
+- React Hot Toast
+
+## Setup Instructions
+
+### Prerequisites
+
+- Node.js 18 or higher
+- npm or yarn
+
+### Installation
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Create environment file
+cp .env.example .env
+```
+
+### Environment Variables
+
+Create `.env` file:
+
+```env
+VITE_API_URL=http://localhost:8000/api
+```
+
+### Development
+
+```bash
+# Start development server
+npm run dev
+```
+
+Server will start at `http://localhost:3000`
+
+### Build for Production
+
+```bash
+# Create optimized production build
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+## Project Structure
+
+```
+frontend/
+├── public/                 # Static files
+├── src/
+│   ├── components/        # Reusable components
+│   │   ├── Navbar.jsx
+│   │   ├── JobCard.jsx
+│   │   ├── BidCard.jsx
+│   │   ├── LoadingSpinner.jsx
+│   │   └── ProtectedRoute.jsx
+│   ├── pages/             # Page components
+│   │   ├── HomePage.jsx
+│   │   ├── LoginPage.jsx
+│   │   ├── RegisterPage.jsx
+│   │   ├── DashboardPage.jsx
+│   │   ├── JobsPage.jsx
+│   │   ├── JobDetailPage.jsx
+│   │   ├── CreateJobPage.jsx
+│   │   ├── BidsPage.jsx
+│   │   ├── BudgetEstimatorPage.jsx
+│   │   ├── RoomVisualizerPage.jsx
+│   │   └── ProfilePage.jsx
+│   ├── store/             # Zustand state management
+│   │   ├── authStore.js
+│   │   ├── jobStore.js
+│   │   └── bidStore.js
+│   ├── utils/             # Utility functions
+│   │   └── api.js         # Axios configuration
+│   ├── App.jsx            # Main app component
+│   ├── main.jsx           # Entry point
+│   └── index.css          # Global styles
+├── index.html
+├── package.json
+├── vite.config.js
+└── tailwind.config.js
+```
+
+## Key Features
 
-# Mistribazaar – Digital Platform for Construction & Home Building
+### Authentication
 
-Mistribazaar is a digital platform designed to connect construction professionals, contractors, and customers in one powerful ecosystem.
-Our goal is to make building, renovating, and managing home projects easy, transparent, and efficient.
+- Phone-based login/registration
+- JWT token management
+- Auto token refresh
+- Protected routes by role
 
-Mistribazaar bridges the gap between homeowners and verified construction experts using technology, AI, and smart project management.
+### Consumer Features
 
-# Key Features 
+- Post construction/repair jobs
+- View and compare bids
+- AI-powered budget estimation
+- Room visualization tool
+- Accept/reject bids
+- Rate completed work
 
-# 1. Find Verified Professionals (Nearby)
+### Mason/Trader Features
 
-Users can easily discover nearby:
+- Browse nearby jobs
+- Submit competitive bids
+- View bid status
+- Manage profile
+- Track earnings
 
-Carpenters
+### AI Features
 
-Electricians
+#### Budget Estimator
+- Conversational 5-step flow
+- Work type selection
+- Area-based calculation
+- City and urgency multipliers
+- Detailed breakdown
+- Required skills list
 
-Plumbers
+#### Room Visualizer
+- Upload current room image
+- Describe desired changes
+- Select design style
+- Before/after comparison
+- Convert to job request
 
-Painters
+## API Integration
 
-Masons
+All API calls use centralized axios instance with:
+- Base URL configuration
+- Auto-attach JWT tokens
+- Token refresh logic
+- Error handling
 
-Interior workers
+## State Management
 
-All professionals are verified and searchable using location-based filtering (within a 10 km radius).
+Using Zustand for:
+- **authStore**: User authentication & profile
+- **jobStore**: Job listings & details
+- **bidStore**: Bidding & recommendations
 
-# 2.  Contractor Bidding System
+## Styling
 
-For large projects such as:
+- Tailwind CSS utility classes
+- Custom component classes
+- Responsive breakpoints
+- Primary brand color scheme
 
-House construction
+## Deployment
 
-Flat renovation
+### Vercel (Recommended)
 
-Building projects
+```bash
+# Install Vercel CLI
+npm install -g vercel
 
-Interior works
+# Deploy
+vercel
+```
 
-Users can post project details, and contractors can place competitive bids.
-This ensures:
+### Netlify
 
-Fair pricing
+```bash
+# Install Netlify CLI
+npm install -g netlify-cli
 
-Transparency
+# Build and deploy
+npm run build
+netlify deploy --prod --dir=dist
+```
 
-Quality service selection
+### Manual Deployment
 
-# 3. AI-Based House Design & Planning
+1. Build the project: `npm run build`
+2. Upload `dist/` folder to hosting
+3. Configure environment variables
+4. Set up routing (SPA mode)
 
-Users can create their dream home digitally:
+## Environment Variables for Production
 
-Personalized house layout
+```env
+VITE_API_URL=https://your-backend-api.com/api
+```
 
-Room size planning
+## Browser Support
 
-Area-wise breakdown
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
 
-2D house maps
+## Performance
 
-3D house visualizations
+- Code splitting by route
+- Lazy loading
+- Optimized images
+- Minimal bundle size
 
-This helps users visualize their house before construction begins, reducing mistakes and cost overruns.
+## Contributing
 
-# 4. AI Customer Support Chatbot
+1. Create feature branch
+2. Make changes
+3. Test thoroughly
+4. Submit pull request
 
-Mistribazaar includes an AI-powered chatbot that:
+## License
 
-Answers user queries
-
-Guides users through the platform
-
-Helps with project creation
-
-Assists in finding workers and contractors
-
-This provides 24/7 customer support without human dependency.
-
-# Problem We Solve
-
-Building or renovating a house is usually:
-
-Time consuming
-
-Costly
-
-Unorganized
-
-Risky due to unverified workers
-
-Mistribazaar solves this by providing:
-
-Verified professionals
-
-Transparent bidding
-
-AI-powered planning
-
-Smart digital tools
-
-# Technology Stack (Planned)
-
-Frontend: React vite
-
-Backend: Django
-
-Database: PostreSql
-
-AI & ML: Python, APIs
-
-Maps & Location: Google Maps API
-
-3D & Visualization: Three.js / Blender
-
-# Vision
-
-Our vision is to make Mistribazaar the “Amazon + UrbanClap for Construction” —
-a one-stop digital solution for:
-
-Materials
-
-Workers
-
-Contractors
-
-House planning
-
-Project management
-
-# Who Can Use Mistribazaar
-
-Homeowners
-
-Builders
-
-Contractors
-
-Interior designers
-
-Construction workers
-
-Real estate developers
-
-# Architecture
-
-
-innerve-mistribazaar/
-├── backend/                         # Django REST API
-│   ├── config/                      # Django settings
-│   ├── users/                       # User management & auth
-│   ├── jobs/                        # Job postings
-│   ├── bids/                        # Bidding system
-│   ├── ratings/                     # Review system
-│   └── ai_engine/image_generation   # AI features
-│
-└── frontend/                        # React.js web app
-    ├── src/
-    │   ├── components/
-    │   ├── pages/
-    │   ├── store/
-    │   └── utils/
-    └── public/
+Proprietary - Mistribazar 2026
