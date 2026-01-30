@@ -16,6 +16,26 @@ const ProfilePage = () => {
     language: user?.language || 'English',
   })
 
+  // Fetch latest profile data on mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await api.get('/users/profile/')
+        updateUser(response.data)
+        // Update local form state with fetched data
+        setFormData({
+          name: response.data.name || '',
+          latitude: response.data.latitude || '',
+          longitude: response.data.longitude || '',
+          language: response.data.language || 'English',
+        })
+      } catch (error) {
+        console.error('Failed to fetch profile:', error)
+      }
+    }
+    fetchProfile()
+  }, [])
+
   const handleSave = async () => {
     setIsLoading(true)
     try {
@@ -160,33 +180,68 @@ const ProfilePage = () => {
             </div>
 
             {/* Role-specific profile */}
-            {user.mason_profile && (
+            {user.worker_profile && (
               <div className="card mt-6">
-                <h3 className="text-xl font-semibold mb-4">Mason Profile</h3>
+                <h3 className="text-xl font-semibold mb-4">Worker Profile</h3>
                 <div className="space-y-3">
                   <div>
                     <label className="label">Skills</label>
-                    <p className="text-gray-900">{user.mason_profile.skills}</p>
+                    <p className="text-gray-900">{user.worker_profile.skills}</p>
+                  </div>
+                  <div>
+                    <label className="label">Hourly Rate</label>
+                    <p className="text-gray-900">₹{user.worker_profile.hourly_rate?.toLocaleString()}</p>
                   </div>
                   <div>
                     <label className="label">Daily Rate</label>
-                    <p className="text-gray-900">₹{user.mason_profile.daily_rate?.toLocaleString()}</p>
+                    <p className="text-gray-900">₹{user.worker_profile.daily_rate?.toLocaleString()}</p>
                   </div>
                   <div>
                     <label className="label">Experience</label>
-                    <p className="text-gray-900">{user.mason_profile.experience_years} years</p>
+                    <p className="text-gray-900">{user.worker_profile.experience_years} years</p>
                   </div>
                   <div>
                     <label className="label">Completed Jobs</label>
-                    <p className="text-gray-900">{user.mason_profile.completed_jobs}</p>
+                    <p className="text-gray-900">{user.worker_profile.completed_jobs}</p>
                   </div>
                   <div>
                     <label className="label">Status</label>
-                    <span className={`px-3 py-1 rounded-full text-sm ${
-                      user.mason_profile.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {user.mason_profile.is_available ? 'Available' : 'Unavailable'}
+                    <span className={`px-3 py-1 rounded-full text-sm ${user.worker_profile.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                      {user.worker_profile.is_available ? 'Available' : 'Unavailable'}
                     </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {user.constructor_profile && (
+              <div className="card mt-6">
+                <h3 className="text-xl font-semibold mb-4">Constructor Profile</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="label">Company Name</label>
+                    <p className="text-gray-900">{user.constructor_profile.company_name || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <label className="label">License Number</label>
+                    <p className="text-gray-900">{user.constructor_profile.license_number || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <label className="label">Specializations</label>
+                    <p className="text-gray-900">{user.constructor_profile.specializations}</p>
+                  </div>
+                  <div>
+                    <label className="label">Team Size</label>
+                    <p className="text-gray-900">{user.constructor_profile.team_size}</p>
+                  </div>
+                  <div>
+                    <label className="label">Experience</label>
+                    <p className="text-gray-900">{user.constructor_profile.experience_years} years</p>
+                  </div>
+                  <div>
+                    <label className="label">Completed Projects</label>
+                    <p className="text-gray-900">{user.constructor_profile.completed_projects}</p>
                   </div>
                 </div>
               </div>
