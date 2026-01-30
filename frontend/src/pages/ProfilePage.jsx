@@ -6,14 +6,14 @@ import toast from 'react-hot-toast'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 const ProfilePage = () => {
-  const { user, updateUser } = useAuthStore()
+  const { profile, updateProfile } = useAuthStore()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    latitude: user?.latitude || '',
-    longitude: user?.longitude || '',
-    language: user?.language || 'English',
+    name: profile?.name || '',
+    latitude: profile?.latitude || '',
+    longitude: profile?.longitude || '',
+    language: profile?.language || 'English',
   })
 
   // Fetch latest profile data on mount
@@ -21,7 +21,7 @@ const ProfilePage = () => {
     const fetchProfile = async () => {
       try {
         const response = await api.get('/users/profile/')
-        updateUser(response.data)
+        updateProfile(response.data)
         // Update local form state with fetched data
         setFormData({
           name: response.data.name || '',
@@ -40,7 +40,7 @@ const ProfilePage = () => {
     setIsLoading(true)
     try {
       const response = await api.put('/users/profile/', formData)
-      updateUser(response.data)
+      updateProfile(response.data)
       setIsEditing(false)
       toast.success('Profile updated successfully!')
     } catch (error) {
@@ -49,7 +49,7 @@ const ProfilePage = () => {
     setIsLoading(false)
   }
 
-  if (!user) {
+  if (!profile) {
     return <LoadingSpinner text="Loading profile..." />
   }
 
@@ -65,14 +65,14 @@ const ProfilePage = () => {
               <div className="bg-primary-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
                 <User className="w-12 h-12 text-primary-600" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">{user.name}</h2>
-              <p className="text-gray-600 mb-4">{user.phone}</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">{profile.name}</h2>
+              <p className="text-gray-600 mb-4">{profile.phone}</p>
               <div className="flex items-center justify-center space-x-2 mb-4">
                 <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                <span className="text-lg font-semibold">{user.rating || '0.0'} / 5.0</span>
+                <span className="text-lg font-semibold">{profile.rating || '0.0'} / 5.0</span>
               </div>
               <span className="px-4 py-2 bg-primary-100 text-primary-800 rounded-full text-sm font-semibold">
-                {user.role}
+                {profile.role}
               </span>
             </div>
           </div>
@@ -109,19 +109,19 @@ const ProfilePage = () => {
                       className="input-field"
                     />
                   ) : (
-                    <p className="text-gray-900 font-medium">{user.name}</p>
+                    <p className="text-gray-900 font-medium">{profile.name}</p>
                   )}
                 </div>
 
                 <div>
                   <label className="label">Phone Number</label>
-                  <p className="text-gray-900 font-medium">{user.phone}</p>
+                  <p className="text-gray-900 font-medium">{profile.phone}</p>
                   <p className="text-sm text-gray-500">Phone number cannot be changed</p>
                 </div>
 
                 <div>
                   <label className="label">Role</label>
-                  <p className="text-gray-900 font-medium">{user.role}</p>
+                  <p className="text-gray-900 font-medium">{profile.role}</p>
                 </div>
 
                 <div>
@@ -134,7 +134,7 @@ const ProfilePage = () => {
                       className="input-field"
                     />
                   ) : (
-                    <p className="text-gray-900 font-medium">{user.language}</p>
+                    <p className="text-gray-900 font-medium">{profile.language}</p>
                   )}
                 </div>
 
@@ -150,7 +150,7 @@ const ProfilePage = () => {
                         className="input-field"
                       />
                     ) : (
-                      <p className="text-gray-900 font-medium">{user.latitude || 'Not set'}</p>
+                      <p className="text-gray-900 font-medium">{profile.latitude || 'Not set'}</p>
                     )}
                   </div>
 
@@ -165,7 +165,7 @@ const ProfilePage = () => {
                         className="input-field"
                       />
                     ) : (
-                      <p className="text-gray-900 font-medium">{user.longitude || 'Not set'}</p>
+                      <p className="text-gray-900 font-medium">{profile.longitude || 'Not set'}</p>
                     )}
                   </div>
                 </div>
@@ -173,103 +173,103 @@ const ProfilePage = () => {
                 <div>
                   <label className="label">Member Since</label>
                   <p className="text-gray-900 font-medium">
-                    {new Date(user.created_at).toLocaleDateString()}
+                    {new Date(profile.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Role-specific profile */}
-            {user.worker_profile && (
+            {profile.worker_profile && (
               <div className="card mt-6">
                 <h3 className="text-xl font-semibold mb-4">Worker Profile</h3>
                 <div className="space-y-3">
                   <div>
                     <label className="label">Skills</label>
-                    <p className="text-gray-900">{user.worker_profile.skills}</p>
+                    <p className="text-gray-900">{profile.worker_profile.skills}</p>
                   </div>
                   <div>
                     <label className="label">Hourly Rate</label>
-                    <p className="text-gray-900">₹{user.worker_profile.hourly_rate?.toLocaleString()}</p>
+                    <p className="text-gray-900">₹{profile.worker_profile.hourly_rate?.toLocaleString()}</p>
                   </div>
                   <div>
                     <label className="label">Daily Rate</label>
-                    <p className="text-gray-900">₹{user.worker_profile.daily_rate?.toLocaleString()}</p>
+                    <p className="text-gray-900">₹{profile.worker_profile.daily_rate?.toLocaleString()}</p>
                   </div>
                   <div>
                     <label className="label">Experience</label>
-                    <p className="text-gray-900">{user.worker_profile.experience_years} years</p>
+                    <p className="text-gray-900">{profile.worker_profile.experience_years} years</p>
                   </div>
                   <div>
                     <label className="label">Completed Jobs</label>
-                    <p className="text-gray-900">{user.worker_profile.completed_jobs}</p>
+                    <p className="text-gray-900">{profile.worker_profile.completed_jobs}</p>
                   </div>
                   <div>
                     <label className="label">Status</label>
-                    <span className={`px-3 py-1 rounded-full text-sm ${user.worker_profile.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    <span className={`px-3 py-1 rounded-full text-sm ${profile.worker_profile.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
-                      {user.worker_profile.is_available ? 'Available' : 'Unavailable'}
+                      {profile.worker_profile.is_available ? 'Available' : 'Unavailable'}
                     </span>
                   </div>
                 </div>
               </div>
             )}
 
-            {user.constructor_profile && (
+            {profile.constructor_profile && (
               <div className="card mt-6">
                 <h3 className="text-xl font-semibold mb-4">Constructor Profile</h3>
                 <div className="space-y-3">
                   <div>
                     <label className="label">Company Name</label>
-                    <p className="text-gray-900">{user.constructor_profile.company_name || 'Not set'}</p>
+                    <p className="text-gray-900">{profile.constructor_profile.company_name || 'Not set'}</p>
                   </div>
                   <div>
                     <label className="label">License Number</label>
-                    <p className="text-gray-900">{user.constructor_profile.license_number || 'Not set'}</p>
+                    <p className="text-gray-900">{profile.constructor_profile.license_number || 'Not set'}</p>
                   </div>
                   <div>
                     <label className="label">Specializations</label>
-                    <p className="text-gray-900">{user.constructor_profile.specializations}</p>
+                    <p className="text-gray-900">{profile.constructor_profile.specializations}</p>
                   </div>
                   <div>
                     <label className="label">Team Size</label>
-                    <p className="text-gray-900">{user.constructor_profile.team_size}</p>
+                    <p className="text-gray-900">{profile.constructor_profile.team_size}</p>
                   </div>
                   <div>
                     <label className="label">Experience</label>
-                    <p className="text-gray-900">{user.constructor_profile.experience_years} years</p>
+                    <p className="text-gray-900">{profile.constructor_profile.experience_years} years</p>
                   </div>
                   <div>
                     <label className="label">Completed Projects</label>
-                    <p className="text-gray-900">{user.constructor_profile.completed_projects}</p>
+                    <p className="text-gray-900">{profile.constructor_profile.completed_projects}</p>
                   </div>
                 </div>
               </div>
             )}
 
-            {user.trader_profile && (
+            {profile.trader_profile && (
               <div className="card mt-6">
                 <h3 className="text-xl font-semibold mb-4">Trader Profile</h3>
                 <div className="space-y-3">
                   <div>
                     <label className="label">Business Name</label>
-                    <p className="text-gray-900">{user.trader_profile.business_name || 'Not set'}</p>
+                    <p className="text-gray-900">{profile.trader_profile.business_name || 'Not set'}</p>
                   </div>
                   <div>
                     <label className="label">Materials</label>
-                    <p className="text-gray-900">{user.trader_profile.materials}</p>
+                    <p className="text-gray-900">{profile.trader_profile.materials}</p>
                   </div>
                   <div>
                     <label className="label">Delivery Radius</label>
-                    <p className="text-gray-900">{user.trader_profile.delivery_radius_km} km</p>
+                    <p className="text-gray-900">{profile.trader_profile.delivery_radius_km} km</p>
                   </div>
                   <div>
                     <label className="label">Average Delivery Time</label>
-                    <p className="text-gray-900">{user.trader_profile.avg_delivery_time}</p>
+                    <p className="text-gray-900">{profile.trader_profile.avg_delivery_time}</p>
                   </div>
                   <div>
                     <label className="label">Completed Orders</label>
-                    <p className="text-gray-900">{user.trader_profile.completed_orders}</p>
+                    <p className="text-gray-900">{profile.trader_profile.completed_orders}</p>
                   </div>
                 </div>
               </div>
