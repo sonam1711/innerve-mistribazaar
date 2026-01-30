@@ -31,7 +31,7 @@ const SupabaseEmailAuth = ({ onLoginSuccess }) => {
             const { error } = await supabase.auth.signInWithOtp({
                 email: email.trim(),
                 options: {
-                    emailRedirectTo: window.location.origin,
+                    emailRedirectTo: import.meta.env.VITE_APP_URL || window.location.origin,
                 }
             })
             if (error) throw error
