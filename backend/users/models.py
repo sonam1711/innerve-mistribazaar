@@ -1,6 +1,7 @@
 """
 User models for Mistribazar
-Defines User, MasonProfile, and TraderProfile
+Defines User, WorkerProfile, TraderProfile, and ConstructorProfile
+Supports Supabase authentication
 """
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
@@ -32,14 +33,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     """
     
     class Role(models.TextChoices):
-        CONSUMER = 'CONSUMER', 'Consumer'
-        MASON = 'MASON', 'Mason'
+        CUSTOMER = 'CUSTOMER', 'Customer'
+        CONSTRUCTOR = 'CONSTRUCTOR', 'Constructor'
+        WORKER = 'WORKER', 'Worker'
         TRADER = 'TRADER', 'Trader'
     
     id = models.BigAutoField(primary_key=True)
+    supabase_id = models.UUIDField(unique=True, null=True, blank=True, help_text="User ID from Supabase Auth")
     name = models.CharField(max_length=255)
     phone = models.CharField(max_length=15, unique=True)
-    role = models.CharField(max_length=10, choices=Role.choices, default=Role.CONSUMER)
+    role = models.CharField(max_length=15, choices=Role.choices, default=Role.CUSTOMER)
     
     # Location (latitude, longitude)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
@@ -70,6 +73,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_table = 'users'
         indexes = [
             models.Index(fields=['phone']),
+            models.Index(fields=['supabase_id']),
             models.Index(fields=['role']),
             models.Index(fields=['latitude', 'longitude']),
         ]
@@ -78,28 +82,39 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.name} ({self.phone}) - {self.role}"
 
 
-class MasonProfile(models.Model):
+class WorkerProfile(models.Model):
     """
-    Extended profile for Mason users
-    Stores mason-specific information
+    Extended profile for Worker users (plumbers, masons, electricians, etc.)
+    Stores worker-specific information
     """
     
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='mason_profile')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='worker_profile')
     
     # Skills (comma-separated or JSON field)
-    skills = models.TextField(help_text="Comma-separated skills e.g., bricklaying, plastering, tiling")
+    skills = models.TextField(help_text="Comma-separated skills e.g., plumbing, masonry, electrical, carpentry")
     
     # Pricing
+    hourly_rate = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        help_text="Hourly rate in local currency",
+        null=True,
+        blank=True
+    )
+    
     daily_rate = models.DecimalField(
         max_digits=10, 
         decimal_places=2,
         validators=[MinValueValidator(0)],
-        help_text="Daily rate in local currency"
+        help_text="Daily rate in local currency",
+        null=True,
+        blank=True
     )
     
     experience_years = models.PositiveIntegerField(default=0)
     
-    # Availability (can be enhanced with a separate availability model)
+    # Availability
     available_dates = models.TextField(
         blank=True,
         help_text="JSON or comma-separated available date ranges"
@@ -115,10 +130,10 @@ class MasonProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        db_table = 'mason_profiles'
+        db_table = 'worker_profiles'
     
     def __str__(self):
-        return f"Mason: {self.user.name}"
+        return f"Worker: {self.user.name}"
 
 
 class TraderProfile(models.Model):
@@ -159,3 +174,48 @@ class TraderProfile(models.Model):
     
     def __str__(self):
         return f"Trader: {self.user.name}"
+
+
+class ConstructorProfile(models.Model):
+    """
+    Extended profile for Constructor users
+    Stores contractor/constructor-specific information for large projects
+    """
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='constructor_profile')
+    
+    # Company/Business information
+    company_name = models.CharField(max_length=255, blank=True)
+    license_number = models.CharField(max_length=100, blank=True)
+    
+    # Specializations
+    specializations = models.TextField(
+        help_text="Comma-separated specializations e.g., residential, commercial, renovation"
+    )
+    
+    # Experience and capacity
+    experience_years = models.PositiveIntegerField(default=0)
+    team_size = models.PositiveIntegerField(default=1, help_text="Number of workers in team")
+    max_project_value = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        help_text="Maximum project value they can handle",
+        null=True,
+        blank=True
+    )
+    
+    completed_projects = models.PositiveIntegerField(default=0)
+    
+    # Availability
+    is_verified = models.BooleanField(default=False)
+    is_available = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'constructor_profiles'
+    
+    def __str__(self):
+        return f"Constructor: {self.user.name}"
