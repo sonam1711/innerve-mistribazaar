@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { UserPlus, Users, Hammer, Building2, ShoppingCart, MapPin } from 'lucide-react'
 import SupabasePasswordAuth from '../components/auth/SupabasePasswordAuth'
@@ -25,7 +25,7 @@ const RegisterPage = () => {
   const [session, setSessionData] = useState(null)
 
   // Auto-detect location on component mount
-  useState(() => {
+  useEffect(() => {
     detectLocation()
   }, [])
 
