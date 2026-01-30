@@ -5,10 +5,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from django.http import FileResponse, Http404
+import os
 from .budget_estimator import BudgetEstimator
 from .recommender import Recommender
 from .room_visualizer import RoomVisualizer
 from .house_designer import HouseDesigner
+from .blender_script_generator import blender_generator
 from bids.models import Bid
 from jobs.models import Job
 
@@ -327,4 +330,132 @@ class HouseDesignView(APIView):
         """
         result = HouseDesigner.conversational_flow(1, {})
         return Response(result, status=status.HTTP_200_OK)
+
+
+class Generate3DHouseView(APIView):
+    """
+    Generate 3D house model using Gemini API
+    Returns Blender Python script based on 12-question survey
+    """
+    
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        """
+        Generate Blender Python script from house survey data
+        
+        Expects JSON with 12 survey answers:
+        {
+            "plot_length": 20,
+            "plot_width": 15,
+            "num_floors": 2,
+            "num_bedrooms": 3,
+            "num_bathrooms": 2,
+            "kitchen_type": "Modern open kitchen",
+            "living_areas": ["Living room", "Dining room"],
+            "outdoor_spaces": ["Balcony", "Terrace"],
+            "parking_spaces": 2,
+            "architectural_style": "Modern",
+            "special_features": ["Solar panels", "Rainwater harvesting"],
+            "roof_type": "Flat",
+            "additional_requirements": "Vastu compliant layout"
+        }
+        
+        Returns:
+        {
+            "success": true,
+            "script": "... Blender Python code ...",
+            "filename": "house_model_abc123.py",
+            "download_url": "/api/ai/3d-house/download/house_model_abc123.py"
+        }
+        """
+        try:
+            # Validate required fields
+            required_fields = [
+                'plot_length', 'plot_width', 'num_floors', 
+                'num_bedrooms', 'num_bathrooms', 'kitchen_type',
+                'architectural_style'
+            ]
+            
+            missing_fields = [field for field in required_fields if field not in request.data]
+            if missing_fields:
+                return Response({
+                    'success': False,
+                    'error': f'Missing required fields: {", ".join(missing_fields)}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Generate Blender script using Gemini
+            house_data = request.data
+            script = blender_generator.generate_script(house_data)
+            
+            # Save the script
+            filename = f"house_model_{request.user.id}_{house_data.get('plot_length')}x{house_data.get('plot_width')}.py"
+            file_path = blender_generator.save_script(script, filename)
+            
+            # Return script and download URL
+            return Response({
+                'success': True,
+                'script': script,
+                'filename': os.path.basename(file_path),
+                'download_url': f'/api/ai/3d-house/download/{os.path.basename(file_path)}',
+                'message': 'Blender script generated successfully'
+            }, status=status.HTTP_200_OK)
+        
+        except ValueError as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': f'Failed to generate 3D model: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class Download3DHouseScriptView(APIView):
+    """
+    Download generated Blender script
+    """
+    
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, filename):
+        """
+        Download a generated Blender Python script
+        """
+        try:
+            from django.conf import settings
+            
+            # Sanitize filename to prevent directory traversal
+            filename = os.path.basename(filename)
+            
+            # Ensure it's a .py file
+            if not filename.endswith('.py'):
+                raise Http404("Invalid file type")
+            
+            # Construct file path
+            file_path = os.path.join(settings.MEDIA_ROOT, 'blender_scripts', filename)
+            
+            # Check if file exists
+            if not os.path.exists(file_path):
+                raise Http404("File not found")
+            
+            # Return file for download
+            response = FileResponse(
+                open(file_path, 'rb'),
+                content_type='text/x-python'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            return response
+        
+        except Http404:
+            raise
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': f'Failed to download file: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

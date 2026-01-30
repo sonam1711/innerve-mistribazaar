@@ -6,7 +6,7 @@ from .views import (
     BudgetEstimateView, DirectBudgetEstimateView,
     RecommendProvidersView, VisualizeRoomView,
     VisualizationStylesView, CreateJobFromVisualizationView,
-    HouseDesignView
+    HouseDesignView, Generate3DHouseView, Download3DHouseScriptView
 )
 
 urlpatterns = [
@@ -22,6 +22,10 @@ urlpatterns = [
     path('visualize/styles/', VisualizationStylesView.as_view(), name='visualization-styles'),
     path('visualize/create-job/', CreateJobFromVisualizationView.as_view(), name='create-job-from-visualization'),
     
-    # House Designer (NEW)
+    # House Designer (conversational)
     path('house-design/', HouseDesignView.as_view(), name='house-design'),
+    
+    # 3D House Designer with Blender (NEW - Gemini powered)
+    path('3d-house/generate/', Generate3DHouseView.as_view(), name='3d-house-generate'),
+    path('3d-house/download/<str:filename>/', Download3DHouseScriptView.as_view(), name='3d-house-download'),
 ]

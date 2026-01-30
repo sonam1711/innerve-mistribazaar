@@ -1,0 +1,178 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Warm Earthy Palette */
+  --bg-dark: #1a120b;
+  --grid-color: rgba(251, 191, 36, 0.07);
+  --glow-center: rgba(120, 66, 18, 0.4);
+  --accent-yellow: #f59e0b;
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-dark);
+  color: #fef3c7;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Fade-in animation for images */
+.fade-in {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.fade-in.loaded {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Fade-in and slide-up animation for category cards */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hide scrollbar for professional cards slider */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Slide-in animation for new cards */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Smooth scroll-triggered fade-in animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Utility classes for scroll animations */
+.animate-on-scroll {
+  opacity: 0;
+  transition: all 0.6s ease-out;
+}
+
+.animate-on-scroll.visible {
+  opacity: 1;
+  animation: slideInFromBottom 0.8s ease-out forwards;
+}
+
+.animate-fade-in {
+  opacity: 0;
+  transition: opacity 0.8s ease-out;
+}
+
+.animate-fade-in.visible {
+  animation: fadeIn 1s ease-out forwards;
+}
+
+.animate-slide-left {
+  opacity: 0;
+  transition: all 0.6s ease-out;
+}
+
+.animate-slide-left.visible {
+  animation: slideInFromLeft 0.8s ease-out forwards;
+}
+
+.animate-slide-right {
+  opacity: 0;
+  transition: all 0.6s ease-out;
+}
+
+.animate-slide-right.visible {
+  animation: slideInFromRight 0.8s ease-out forwards;
+}
+
+.animate-scale {
+  opacity: 0;
+  transition: all 0.6s ease-out;
+}
+
+.animate-scale.visible {
+  animation: scaleIn 0.8s ease-out forwards;
+}
