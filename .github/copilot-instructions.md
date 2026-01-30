@@ -93,25 +93,44 @@ login: async (phone, password) => {
 }
 ```
 
-**Important**: Never call API directly from components - always go through stores or centralized `api.js`
+**Data Flow Pattern - How stores work with components**:
+1. Component calls `useAuthStore()` or `useJobStore()` hook to get state + methods
+2. Store method makes API call via centralized `api.js` (which attaches JWT token)
+3. Store updates Zustand state via `set({ ... })`
+4. Component re-renders with new state
+5. Toast notifications handle success/error feedback
+6. **Important**: Never call API directly from components - always go through stores or centralized `api.js`
+
+**localStorage Persistence**:
+- `authStore` uses `persist` middleware from Zustand
+- Automatically saves `user` and `tokens` to localStorage on state changes
+- Automatically restores from localStorage on app load
+- **Logout**: Must manually clear tokens with `localStorage.removeItem('access_token')` (done in store's logout method)
 
 ### 6. API Architecture
 **Centralized Axios Instance** (`frontend/src/utils/api.js`):
-- Request interceptor: Attaches JWT from localStorage to `Authorization: Bearer <token>` header
-- Response interceptor: Auto-refreshes expired tokens on 401 responses
-  - On 401, attempts token refresh with `/api/users/refresh/` endpoint
+- **Request interceptor**: Attaches JWT from localStorage to `Authorization: Bearer <token>` header
+  - Automatically sends `Content-Type: application/json` on all requests
+  - Silently skips auth header if no token (for public endpoints like login, register)
+- **Response interceptor**: Auto-refreshes expired tokens on 401 responses
+  - On 401, attempts token refresh with `/api/users/token/refresh/` endpoint
   - Updates `access_token` in localStorage automatically
   - Retries original request with new token
-  - If refresh fails, redirects to login page
-- Base URL from `VITE_API_URL` env var (defaults to `http://localhost:8000/api`)
-- **Critical**: All API calls MUST go through this instance, never raw `axios`
+  - If refresh fails, logs out user and redirects to `/login`
+- **Base URL**: From `VITE_API_URL` env var (defaults to `http://localhost:8000/api`)
+- **Critical**: All API calls MUST go through this instance, never raw `axios` or fetch
+
+**Request/Response Pattern**:
+- All responses are JSON with consistent structure
+- Errors include `error` or `detail` fields
+- Example error handling in components: `error.response?.data?.error || 'Fallback message'`
 
 **Backend URL Pattern**:
-- `/api/users/` - User/auth endpoints
-- `/api/jobs/` - Job CRUD + filtering
-- `/api/bids/` - Bidding system
-- `/api/ratings/` - Review system
-- `/api/ai/` - AI features (budget, recommender, visualizer)
+- `/api/users/` - User/auth endpoints (register, login, profile, token refresh)
+- `/api/jobs/` - Job CRUD + filtering (list, create, nearby, detail, status update)
+- `/api/bids/` - Bidding system (list, create, accept, reject)
+- `/api/ratings/` - Review system (create, list, user ratings)
+- `/api/ai/` - AI features (budget estimator, house designer, recommender)
 
 ## Core Data Models & Relationships
 
@@ -164,6 +183,9 @@ python manage.py createsuperuser
 python manage.py runserver     # Runs on http://localhost:8000
 # Admin panel: http://localhost:8000/admin
 # API root: http://localhost:8000/api
+
+# For Windows PowerShell execution policy issue:
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser  # Run once per machine
 ```
 
 **Frontend**:
@@ -219,6 +241,34 @@ python manage.py migrate
 1. Send OTP: `POST /api/users/send-otp/` with `{"phone": "+919876543210"}`
 2. In dev mode, OTP appears in JSON response: `{"otp": "123456", "success": true}`
 3. Verify: `POST /api/users/verify-otp/` with `{"phone": "+919876543210", "otp": "123456"}`
+4. **Cache Storage**: OTP stored in Django cache framework (default: Django's local memory cache in dev)
+   - For production, configure `CACHES` in `settings.py` to use Redis or Memcached
+   - **Development debugging**: OTP rate limiting bypassed if `DEBUG=True` in rapid testing (requires server restart to pick up .env changes)
+
+### Common API Query Patterns
+
+**Job filtering by location and status** (consumers view only open jobs nearby):
+```
+GET /api/jobs/nearby/?latitude=28.6139&longitude=77.2090&radius=50&status=OPEN
+```
+
+**User profile with auth required**:
+```
+GET /api/users/profile/
+Headers: Authorization: Bearer {access_token}
+```
+
+**Token refresh endpoint**:
+```
+POST /api/users/token/refresh/
+Body: {"refresh": "{refresh_token}"}
+```
+
+**Job status workflow**:
+```
+PATCH /api/jobs/{id}/status/
+Body: {"status": "IN_PROGRESS"}  # or "COMPLETED", "CANCELLED"
+```
 
 ### JWT Token Lifecycle
 - **Access token**: 1 day lifetime (24 hours)
@@ -260,6 +310,19 @@ def get_queryset(self):
 - **Icons**: Lucide React (`lucide-react` package)
 - **Build Tool**: Vite with React plugin, ESLint for linting
 - **Bundle Command**: `npm run build` → outputs to `dist/` folder
+
+**Frontend Route Structure** (`src/App.jsx`):
+- Public routes: `/`, `/login`, `/register`
+- Protected routes with `ProtectedRoute` component:
+  - `/dashboard` (all authenticated users)
+  - `/create-job` (CONSUMER only)
+  - `/jobs` (all authenticated)
+  - `/bids` (MASON/TRADER only)
+  - `/profile` (all authenticated)
+  - `/budget-estimator`, `/room-visualizer` (AI features, requires auth)
+- **Page files**: Each route maps to a page component in `src/pages/`
+  - Pages use stores (`authStore`, `jobStore`, `bidStore`) for data fetching
+  - Pages handle local form state separately from global stores
 
 ### File Naming
 - Backend: `snake_case` (Django convention)
@@ -333,9 +396,29 @@ Placeholder for image-to-image API integration (Stability AI, Replicate)
 
 10. **API Response Patterns**: All API calls go through centralized `api.js` which handles token attachment and 401 auto-refresh. Don't use raw `axios` in components.
 
+## Debugging & Common Issues
+
+### Frontend Token Issues
+- **401 on login**: Check if backend is returning `access` and `refresh` tokens in response
+- **Tokens not persisting**: Verify `authStore.js` logout() clears localStorage, and persist middleware is enabled
+- **Infinite redirect loops**: Check `api.js` interceptor - max retries should prevent this, but verify refresh endpoint works
+
+### Backend OTP Issues
+- **OTP not in response**: Verify `DEBUG=True` in `.env` and check `otp_manager.py` response format
+- **OTP rate limiting too strict**: Rate limits are 5 requests/hour, 3 verification attempts per OTP - for testing, use different phone numbers
+- **Cache errors**: Ensure Django cache is configured (default: local memory cache works in dev)
+
+### Location-Based Query Issues
+- **Nearby jobs returns empty**: Check query parameters `latitude`, `longitude`, `radius` are numeric and valid (decimal precision important)
+- **Haversine distance off**: Verify coordinates are in correct order (latitude, longitude) and use DecimalField precision
+
+### Database Migration Issues
+- **Foreign key to User fails**: Migrations must apply `users` app first - check `INSTALLED_APPS` order
+- **SQLite to PostgreSQL migration**: Update `DATABASE_ENGINE` in `.env`, ensure database exists, then `python manage.py migrate`
+
 ## Environment Configuration
 
-**Backend** (`.env` in `backend/`):
+**Backend** (`.env` in `backend/` directory - required):
 ```env
 SECRET_KEY=                        # Django secret
 DEBUG=True                         # Enable dev mode (shows OTP in response)
@@ -350,12 +433,19 @@ IMAGE_TO_IMAGE_API_KEY=            # Optional: Stability AI/Replicate for room v
 IMAGE_TO_IMAGE_API_URL=            # Image generation API endpoint
 ```
 
-**Frontend** (`.env` in `frontend/`):
+**Frontend** (`.env` in `frontend/` directory - optional, has defaults):
 ```env
-VITE_API_URL=http://localhost:8000/api    # Backend API base URL
+VITE_API_URL=http://localhost:8000/api    # Backend API base URL (dev: leave empty to use proxy)
 ```
 
-**Production Note**: Use `python-decouple` for all env vars (already configured in `settings.py`)
+**Environment Loading**:
+- Backend: Uses `python-decouple` package to read `.env` file (see [backend/config/settings.py](backend/config/settings.py#L1))
+- Frontend: Uses Vite's `import.meta.env` for env vars prefixed with `VITE_` (see [frontend/vite.config.js](frontend/vite.config.js))
+- **Production Note**: Set env vars via system/container environment, not .env files
+
+**Cache Backend for OTP**:
+- **Development**: Django's local memory cache (default, works without setup)
+- **Production**: Configure Redis or Memcached in `CACHES` setting in `settings.py`
 
 ### Error Handling & User Feedback
 **Frontend Toast Notifications** (`react-hot-toast`):

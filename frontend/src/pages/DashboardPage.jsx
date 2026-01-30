@@ -18,8 +18,10 @@ const DashboardPage = () => {
 
   useEffect(() => {
     if (user.role === 'CONSUMER') {
-      fetchJobs({ my_jobs: true })
+      // Consumers see their own jobs from regular job list endpoint
+      fetchJobs()
     } else {
+      // Masons/Traders see nearby open jobs
       fetchNearbyJobs()
     }
     fetchMyBids()

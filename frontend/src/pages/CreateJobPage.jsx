@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useJobStore } from '../store/jobStore'
 import { useAuthStore } from '../store/authStore'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, MapPin } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { getCurrentLocation } from '../utils/location'
 
 const CreateJobPage = () => {
   const navigate = useNavigate()
@@ -16,13 +17,47 @@ const CreateJobPage = () => {
     description: '',
     budget_min: '',
     budget_max: '',
-    latitude: user.latitude || '',
-    longitude: user.longitude || '',
+    latitude: '',
+    longitude: '',
     address: '',
     image_urls: [],
   })
+  
+  const [detectingLocation, setDetectingLocation] = useState(false)
+  
+  // Auto-detect current location when component mounts
+  useEffect(() => {
+    detectCurrentLocation()
+  }, [])
 
   const [imageUrl, setImageUrl] = useState('')
+  
+  // Function to detect current location
+  const detectCurrentLocation = async () => {
+    setDetectingLocation(true)
+    try {
+      const location = await getCurrentLocation()
+      setFormData(prev => ({
+        ...prev,
+        latitude: location.latitude,
+        longitude: location.longitude
+      }))
+      toast.success('Current location detected for job posting')
+    } catch (error) {
+      console.error('Location detection error:', error)
+      toast.error(error.message || 'Could not detect location. Please enter manually.')
+      // Fallback to user's registered location
+      if (user.latitude && user.longitude) {
+        setFormData(prev => ({
+          ...prev,
+          latitude: user.latitude,
+          longitude: user.longitude
+        }))
+      }
+    } finally {
+      setDetectingLocation(false)
+    }
+  }
 
   const addImage = () => {
     if (imageUrl && !formData.image_urls.includes(imageUrl)) {
@@ -163,6 +198,16 @@ const CreateJobPage = () => {
                 />
               </div>
             </div>
+            
+            <button
+              type="button"
+              onClick={detectCurrentLocation}
+              disabled={detectingLocation}
+              className="btn-outline flex items-center gap-2"
+            >
+              <MapPin className="w-5 h-5" />
+              {detectingLocation ? 'Detecting Location...' : 'Use Current Location'}
+            </button>
 
             <div>
               <label className="label">Images (URLs)</label>

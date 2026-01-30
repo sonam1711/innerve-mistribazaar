@@ -4,17 +4,39 @@ import { User, MapPin, Star } from 'lucide-react'
 import api from '../utils/api'
 import toast from 'react-hot-toast'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { getCurrentLocation } from '../utils/location'
 
 const ProfilePage = () => {
   const { user, updateUser } = useAuthStore()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [detectingLocation, setDetectingLocation] = useState(false)
   const [formData, setFormData] = useState({
     name: user?.name || '',
     latitude: user?.latitude || '',
     longitude: user?.longitude || '',
     language: user?.language || 'English',
   })
+  
+  // Function to detect current location
+  const detectCurrentLocation = async () => {
+    setDetectingLocation(true)
+    try {
+      const location = await getCurrentLocation()
+      setFormData(prev => ({
+        ...prev,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        language: location.language
+      }))
+      toast.success(`Location updated: ${location.language} region`)
+    } catch (error) {
+      console.error('Location detection error:', error)
+      toast.error(error.message || 'Could not detect location')
+    } finally {
+      setDetectingLocation(false)
+    }
+  }
 
   const handleSave = async () => {
     setIsLoading(true)
@@ -149,6 +171,23 @@ const ProfilePage = () => {
                     )}
                   </div>
                 </div>
+                
+                {isEditing && (user.role === 'MASON' || user.role === 'TRADER') && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={detectCurrentLocation}
+                      disabled={detectingLocation}
+                      className="btn-outline flex items-center gap-2 w-full"
+                    >
+                      <MapPin className="w-5 h-5" />
+                      {detectingLocation ? 'Detecting Location...' : 'Update to Current Location'}
+                    </button>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Update your location to match jobs near you
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="label">Member Since</label>

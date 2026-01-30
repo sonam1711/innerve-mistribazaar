@@ -54,23 +54,22 @@ class JobListView(generics.ListAPIView):
         queryset = Job.objects.all()
         user = self.request.user
         
-        # Filter by status
-        status = self.request.query_params.get('status', None)
-        if status:
-            queryset = queryset.filter(status=status)
-        
-        # Filter by job type
-        job_type = self.request.query_params.get('job_type', None)
-        if job_type:
-            queryset = queryset.filter(job_type=job_type)
-        
-        # Role-specific filters
+        # Role-specific filters FIRST (most important)
         if user.role == 'CONSUMER':
             # Consumers should ALWAYS see only their own jobs
             queryset = queryset.filter(consumer=user)
+            
+            # Then apply optional filters
+            status_filter = self.request.query_params.get('status', None)
+            if status_filter:
+                queryset = queryset.filter(status=status_filter)
+            
+            job_type = self.request.query_params.get('job_type', None)
+            if job_type:
+                queryset = queryset.filter(job_type=job_type)
         
         elif user.role in ['MASON', 'TRADER']:
-            # Show open jobs
+            # Show only OPEN jobs for providers
             queryset = queryset.filter(status='OPEN')
             
             # Get location from query params (live location) or fall back to user's stored location
@@ -96,7 +95,7 @@ class JobListView(generics.ListAPIView):
                 except ValueError:
                     radius_km = 50
                 
-                # Filter jobs (this is a simple filter, for production use PostGIS)
+                # Filter jobs by distance (for production, use PostGIS)
                 nearby_jobs = []
                 for job in queryset:
                     # Skip jobs without valid location data
@@ -114,8 +113,17 @@ class JobListView(generics.ListAPIView):
                         # Skip jobs with invalid coordinates
                         continue
                 
-                queryset = queryset.filter(id__in=nearby_jobs)
+                # Only show nearby jobs if any found, otherwise show empty list
+                if nearby_jobs:
+                    queryset = queryset.filter(id__in=nearby_jobs)
+                else:
+                    queryset = queryset.none()  # Return empty queryset
             # If no location available, show all open jobs (no location filter)
+            
+            # Apply optional filters
+            job_type = self.request.query_params.get('job_type', None)
+            if job_type:
+                queryset = queryset.filter(job_type=job_type)
         
         return queryset.order_by('-created_at')
 
@@ -220,7 +228,7 @@ class NearbyJobsView(APIView):
         
         return Response({
             'count': len(nearby_jobs),
-            'jobs': nearby_jobs
+            'results': nearby_jobs
         })
 
 
