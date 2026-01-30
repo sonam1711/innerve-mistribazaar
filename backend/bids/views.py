@@ -9,16 +9,16 @@ from django.db import transaction
 from .models import Bid
 from jobs.models import Job
 from .serializers import BidSerializer, BidListSerializer, BidUpdateSerializer
-from users.permissions import IsMasonOrTrader, IsConsumer
+from users.permissions import IsContractorOrTrader, IsConsumer
 
 
 class BidCreateView(generics.CreateAPIView):
     """
-    Create a new bid (Mason/Trader only)
+    Create a new bid (Contractor/Trader only)
     """
     
     serializer_class = BidSerializer
-    permission_classes = [IsAuthenticated, IsMasonOrTrader]
+    permission_classes = [IsAuthenticated, IsContractorOrTrader]
     
     def perform_create(self, serializer):
         serializer.save(bidder=self.request.user)
@@ -28,7 +28,7 @@ class BidListView(generics.ListAPIView):
     """
     List bids
     - Consumers see bids on their jobs
-    - Masons/Traders see their own bids
+    - Contractors/Traders see their own bids
     """
     
     serializer_class = BidListSerializer
@@ -44,7 +44,7 @@ class BidListView(generics.ListAPIView):
                 return Bid.objects.filter(job_id=job_id, job__consumer=user)
             return Bid.objects.filter(job__consumer=user).order_by('bid_amount')
         
-        else:  # MASON or TRADER
+        else:  # CONTRACTOR or TRADER
             # Show user's bids
             return Bid.objects.filter(bidder=user).order_by('-created_at')
 
@@ -172,7 +172,7 @@ class WithdrawBidView(APIView):
     Only bidder can withdraw
     """
     
-    permission_classes = [IsAuthenticated, IsMasonOrTrader]
+    permission_classes = [IsAuthenticated, IsContractorOrTrader]
     
     def post(self, request, pk):
         try:

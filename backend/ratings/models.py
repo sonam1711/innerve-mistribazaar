@@ -11,7 +11,7 @@ from jobs.models import Job
 class Rating(models.Model):
     """
     Ratings given after job completion
-    Consumer rates the mason/trader
+    Consumer rates the contractor/mistri/trader
     """
     
     id = models.BigAutoField(primary_key=True)
@@ -19,12 +19,12 @@ class Rating(models.Model):
     # Job that was completed
     job = models.OneToOneField(Job, on_delete=models.CASCADE, related_name='rating')
     
-    # Who is being rated (mason or trader)
+    # Who is being rated (contractor, mistri, or trader)
     rated_to = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='ratings_received',
-        limit_choices_to={'role__in': ['MASON', 'TRADER']}
+        limit_choices_to={'role__in': ['CONTRACTOR', 'MISTRI', 'TRADER']}
     )
     
     # Who gave the rating (consumer)

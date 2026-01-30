@@ -9,13 +9,25 @@ from users.models import User
 
 class Job(models.Model):
     """
-    Job posting by consumers
-    Can be bid on by masons and traders
+    Job/Project posting by consumers
+    PROJECTS can be bid on by contractors and traders
+    JOBS can be accepted/rejected by mistri and traders
     """
+    
+    class Category(models.TextChoices):
+        PROJECT = 'PROJECT', 'Project (Construction)'
+        JOB = 'JOB', 'Job (Repair/Renovation)'
     
     class JobType(models.TextChoices):
         REPAIR = 'REPAIR', 'Repair'
         CONSTRUCTION = 'CONSTRUCTION', 'Construction'
+        RENOVATION = 'RENOVATION', 'Renovation'
+        PLUMBING = 'PLUMBING', 'Plumbing'
+        ELECTRICAL = 'ELECTRICAL', 'Electrical'
+        CARPENTRY = 'CARPENTRY', 'Carpentry'
+        PAINTING = 'PAINTING', 'Painting'
+        TILING = 'TILING', 'Tiling'
+        OTHER = 'OTHER', 'Other'
     
     class Status(models.TextChoices):
         OPEN = 'OPEN', 'Open for Bidding'
@@ -24,6 +36,9 @@ class Job(models.Model):
         CANCELLED = 'CANCELLED', 'Cancelled'
     
     id = models.BigAutoField(primary_key=True)
+    
+    # Category: PROJECT (for contractors) or JOB (for mistri)
+    category = models.CharField(max_length=10, choices=Category.choices, default=Category.JOB)
     
     # Consumer who posted the job
     consumer = models.ForeignKey(
@@ -58,7 +73,7 @@ class Job(models.Model):
     # Status
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
     
-    # Selected provider (mason/trader who won the bid)
+    # Selected provider (contractor/mistri/trader who was selected)
     selected_provider = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -77,6 +92,7 @@ class Job(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['consumer']),
+            models.Index(fields=['category']),
             models.Index(fields=['status']),
             models.Index(fields=['latitude', 'longitude']),
             models.Index(fields=['-created_at']),

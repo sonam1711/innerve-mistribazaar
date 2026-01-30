@@ -12,14 +12,21 @@ class IsConsumer(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user and request.user.is_authenticated and request.user.role == 'CONSUMER'
 
-
-class IsMason(permissions.BasePermission):
+class IsMistri(permissions.BasePermission):
     """
-    Permission to only allow masons to access a view
+    Permission to only allow mistri (skilled workers) to access a view
     """
     
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'MASON'
+        return request.user and request.user.is_authenticated and request.user.role == 'MISTRI'
+
+class IsContractor(permissions.BasePermission):
+    """
+    Permission to only allow contractors to access a view
+    """
+    
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role == 'CONTRACTOR'
 
 
 class IsTrader(permissions.BasePermission):
@@ -31,15 +38,33 @@ class IsTrader(permissions.BasePermission):
         return request.user and request.user.is_authenticated and request.user.role == 'TRADER'
 
 
-class IsMasonOrTrader(permissions.BasePermission):
+class IsContractorOrTrader(permissions.BasePermission):
     """
-    Permission to allow both masons and traders to access a view
+    Permission to allow both contractors and traders to access a view
     """
     
     def has_permission(self, request, view):
         return (request.user and request.user.is_authenticated and 
-                request.user.role in ['MASON', 'TRADER'])
+                request.user.role in ['CONTRACTOR', 'TRADER'])
 
+class IsMistriOrTrader(permissions.BasePermission):
+    """
+    Permission to allow both mistri and traders to access a view
+    """
+    
+    def has_permission(self, request, view):
+        return (request.user and request.user.is_authenticated and 
+                request.user.role in ['MISTRI', 'TRADER'])
+
+
+class IsProvider(permissions.BasePermission):
+    """
+    Permission to allow contractors, mistri, or traders (any service provider)
+    """
+    
+    def has_permission(self, request, view):
+        return (request.user and request.user.is_authenticated and 
+                request.user.role in ['CONTRACTOR', 'MISTRI', 'TRADER'])
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
     """

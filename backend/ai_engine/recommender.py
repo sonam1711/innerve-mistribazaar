@@ -1,6 +1,6 @@
 """
 Recommender System - Rule-based logic
-Ranks masons/traders based on explainable criteria
+Ranks contractors/traders based on explainable criteria
 """
 from math import radians, cos, sin, asin, sqrt
 
@@ -97,7 +97,13 @@ class Recommender:
             )
             
             # Availability score
-            availability_score = 1.0 if hasattr(bid.bidder, 'mason_profile') and bid.bidder.mason_profile.is_available else 0.5
+            # Availability (if profile exists)
+            if hasattr(bid.bidder, 'contractor_profile'):
+                availability_score = 1.0 if bid.bidder.contractor_profile.is_available else 0.5
+            elif hasattr(bid.bidder, 'trader_profile'):
+                availability_score = 1.0 if bid.bidder.trader_profile.is_available else 0.5
+            else:
+                availability_score = 0.5
             if hasattr(bid.bidder, 'trader_profile'):
                 availability_score = 1.0 if bid.bidder.trader_profile.is_available else 0.5
             

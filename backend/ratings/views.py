@@ -43,7 +43,7 @@ class RatingListView(generics.ListAPIView):
 
 class UserRatingsView(generics.ListAPIView):
     """
-    Get all ratings for a specific user (mason/trader)
+    Get all ratings for a specific user (contractor/mistri/trader)
     """
     
     serializer_class = RatingListSerializer

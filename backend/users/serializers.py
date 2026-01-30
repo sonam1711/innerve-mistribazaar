@@ -1,19 +1,31 @@
-"""
-Serializers for User, MasonProfile, and TraderProfile
+"""Serializers for User, ContractorProfile, MistriProfile, and TraderProfile
 """
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
-from .models import User, MasonProfile, TraderProfile
+from .models import User, ContractorProfile, MistriProfile, TraderProfile
 
 
-class MasonProfileSerializer(serializers.ModelSerializer):
-    """Serializer for Mason profile"""
+class ContractorProfileSerializer(serializers.ModelSerializer):
+    """Serializer for Contractor profile"""
     
     class Meta:
-        model = MasonProfile
+        model = ContractorProfile
+        fields = [
+            'company_name', 'experience_years', 'min_project_value',
+            'completed_projects', 'is_verified', 'is_available'
+        ]
+        read_only_fields = ['completed_projects', 'is_verified']
+
+
+class MistriProfileSerializer(serializers.ModelSerializer):
+    """Serializer for Mistri profile"""
+    
+    class Meta:
+        model = MistriProfile
         fields = [
             'skills', 'daily_rate', 'experience_years', 'available_dates',
-            'completed_jobs', 'is_verified', 'is_available'
+            'completed_jobs', 'sms_notifications', 'call_notifications',
+            'is_verified', 'is_available'
         ]
         read_only_fields = ['completed_jobs', 'is_verified']
 
@@ -33,14 +45,16 @@ class TraderProfileSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User with nested profiles"""
     
-    mason_profile = MasonProfileSerializer(required=False)
+    contractor_profile = ContractorProfileSerializer(required=False)
+    mistri_profile = MistriProfileSerializer(required=False)
     trader_profile = TraderProfileSerializer(required=False)
     
     class Meta:
         model = User
         fields = [
             'id', 'name', 'phone', 'role', 'latitude', 'longitude',
-            'rating', 'language', 'created_at', 'mason_profile', 'trader_profile'
+            'rating', 'language', 'created_at', 'contractor_profile',
+            'mistri_profile', 'trader_profile'
         ]
         read_only_fields = ['id', 'rating', 'created_at']
 
@@ -51,7 +65,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
     
-    mason_profile = MasonProfileSerializer(required=False)
+    contractor_profile = ContractorProfileSerializer(required=False)
+    mistri_profile = MistriProfileSerializer(required=False)
     trader_profile = TraderProfileSerializer(required=False)
     
     class Meta:
@@ -59,7 +74,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = [
             'name', 'phone', 'password', 'password2', 'role',
             'latitude', 'longitude', 'language',
-            'mason_profile', 'trader_profile'
+            'contractor_profile', 'mistri_profile', 'trader_profile'
         ]
     
     def validate(self, attrs):
@@ -71,18 +86,22 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         role = attrs.get('role')
         
         # Validate role-specific profiles (only if data is provided)
-        # Allow empty profiles for all roles during registration
-        # Profile can be completed later
-        if role == 'MASON' and 'mason_profile' in attrs:
-            # Validate mason profile if provided
-            mason_data = attrs['mason_profile']
-            if not mason_data.get('skills') or not mason_data.get('daily_rate'):
+        if role == 'CONTRACTOR' and 'contractor_profile' in attrs:
+            contractor_data = attrs['contractor_profile']
+            # Company name is optional, but experience years should be provided
+            if 'experience_years' not in contractor_data:
                 raise serializers.ValidationError({
-                    "mason_profile": "Skills and daily rate are required for Mason profile."
+                    "contractor_profile": "Experience years are required for Contractor profile."
+                })
+        
+        if role == 'MISTRI' and 'mistri_profile' in attrs:
+            mistri_data = attrs['mistri_profile']
+            if not mistri_data.get('skills') or not mistri_data.get('daily_rate'):
+                raise serializers.ValidationError({
+                    "mistri_profile": "Skills and daily rate are required for Mistri profile."
                 })
         
         if role == 'TRADER' and 'trader_profile' in attrs:
-            # Validate trader profile if provided
             trader_data = attrs['trader_profile']
             if not trader_data.get('materials'):
                 raise serializers.ValidationError({
@@ -95,15 +114,19 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         """Create user with nested profile"""
         
         validated_data.pop('password2')
-        mason_profile_data = validated_data.pop('mason_profile', None)
+        contractor_profile_data = validated_data.pop('contractor_profile', None)
+        mistri_profile_data = validated_data.pop('mistri_profile', None)
         trader_profile_data = validated_data.pop('trader_profile', None)
         
         # Create user
         user = User.objects.create_user(**validated_data)
         
         # Create role-specific profile
-        if mason_profile_data and user.role == 'MASON':
-            MasonProfile.objects.create(user=user, **mason_profile_data)
+        if contractor_profile_data and user.role == 'CONTRACTOR':
+            ContractorProfile.objects.create(user=user, **contractor_profile_data)
+        
+        if mistri_profile_data and user.role == 'MISTRI':
+            MistriProfile.objects.create(user=user, **mistri_profile_data)
         
         if trader_profile_data and user.role == 'TRADER':
             TraderProfile.objects.create(user=user, **trader_profile_data)
@@ -114,20 +137,22 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class UserUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating user profile"""
     
-    mason_profile = MasonProfileSerializer(required=False)
+    contractor_profile = ContractorProfileSerializer(required=False)
+    mistri_profile = MistriProfileSerializer(required=False)
     trader_profile = TraderProfileSerializer(required=False)
     
     class Meta:
         model = User
         fields = [
             'name', 'latitude', 'longitude', 'language',
-            'mason_profile', 'trader_profile'
+            'contractor_profile', 'mistri_profile', 'trader_profile'
         ]
     
     def update(self, instance, validated_data):
         """Update user and nested profiles"""
         
-        mason_profile_data = validated_data.pop('mason_profile', None)
+        contractor_profile_data = validated_data.pop('contractor_profile', None)
+        mistri_profile_data = validated_data.pop('mistri_profile', None)
         trader_profile_data = validated_data.pop('trader_profile', None)
         
         # Update user fields
@@ -135,11 +160,17 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         
-        # Update mason profile
-        if mason_profile_data and hasattr(instance, 'mason_profile'):
-            for attr, value in mason_profile_data.items():
-                setattr(instance.mason_profile, attr, value)
-            instance.mason_profile.save()
+        # Update contractor profile
+        if contractor_profile_data and hasattr(instance, 'contractor_profile'):
+            for attr, value in contractor_profile_data.items():
+                setattr(instance.contractor_profile, attr, value)
+            instance.contractor_profile.save()
+        
+        # Update mistri profile
+        if mistri_profile_data and hasattr(instance, 'mistri_profile'):
+            for attr, value in mistri_profile_data.items():
+                setattr(instance.mistri_profile, attr, value)
+            instance.mistri_profile.save()
         
         # Update trader profile
         if trader_profile_data and hasattr(instance, 'trader_profile'):

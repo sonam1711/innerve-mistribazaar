@@ -68,7 +68,7 @@ class JobListView(generics.ListAPIView):
             if job_type:
                 queryset = queryset.filter(job_type=job_type)
         
-        elif user.role in ['MASON', 'TRADER']:
+        elif user.role in ['CONTRACTOR', 'MISTRI', 'TRADER']:
             # Show only OPEN jobs for providers
             queryset = queryset.filter(status='OPEN')
             
@@ -161,7 +161,7 @@ class MyJobsView(generics.ListAPIView):
 class NearbyJobsView(APIView):
     """
     Get jobs near the user's location
-    For masons and traders
+    For contractors, mistri, and traders
     """
     
     permission_classes = [IsAuthenticated]

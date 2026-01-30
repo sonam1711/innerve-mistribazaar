@@ -1,6 +1,6 @@
 """
 User models for Mistribazar
-Defines User, MasonProfile, and TraderProfile
+Defines User, ContractorProfile, TraderProfile, and MistriProfile
 """
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
@@ -28,18 +28,19 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin):
     """
     Custom User model with role-based access
-    Roles: CONSUMER, MASON, TRADER
+    Roles: CONSUMER, CONTRACTOR, TRADER, MISTRI
     """
     
     class Role(models.TextChoices):
         CONSUMER = 'CONSUMER', 'Consumer'
-        MASON = 'MASON', 'Mason'
+        CONTRACTOR = 'CONTRACTOR', 'Contractor'
         TRADER = 'TRADER', 'Trader'
+        MISTRI = 'MISTRI', 'Mistri'
     
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=255)
     phone = models.CharField(max_length=15, unique=True)
-    role = models.CharField(max_length=10, choices=Role.choices, default=Role.CONSUMER)
+    role = models.CharField(max_length=15, choices=Role.choices, default=Role.CONSUMER)
     
     # Location (latitude, longitude)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
@@ -78,16 +79,55 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.name} ({self.phone}) - {self.role}"
 
 
-class MasonProfile(models.Model):
+class ContractorProfile(models.Model):
     """
-    Extended profile for Mason users
-    Stores mason-specific information
+    Extended profile for Contractor users
+    Handles large construction projects (no skills field)
     """
     
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='mason_profile')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='contractor_profile')
+    
+    # Business information
+    company_name = models.CharField(max_length=255, blank=True)
+    
+    experience_years = models.PositiveIntegerField(default=0)
+    
+    # Pricing range (for bidding)
+    min_project_value = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        help_text="Minimum project value in local currency",
+        null=True,
+        blank=True
+    )
+    
+    completed_projects = models.PositiveIntegerField(default=0)
+    
+    # Profile status
+    is_verified = models.BooleanField(default=False)
+    is_available = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'contractor_profiles'
+    
+    def __str__(self):
+        return f"Contractor: {self.user.name}"
+
+
+class MistriProfile(models.Model):
+    """
+    Extended profile for Mistri users (skilled workers)
+    Handles small jobs and repairs (has skills field)
+    """
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='mistri_profile')
     
     # Skills (comma-separated or JSON field)
-    skills = models.TextField(help_text="Comma-separated skills e.g., bricklaying, plastering, tiling")
+    skills = models.TextField(help_text="Comma-separated skills e.g., bricklaying, plastering, tiling, carpentry")
     
     # Pricing
     daily_rate = models.DecimalField(
@@ -99,13 +139,17 @@ class MasonProfile(models.Model):
     
     experience_years = models.PositiveIntegerField(default=0)
     
-    # Availability (can be enhanced with a separate availability model)
+    # Availability dates
     available_dates = models.TextField(
         blank=True,
         help_text="JSON or comma-separated available date ranges"
     )
     
     completed_jobs = models.PositiveIntegerField(default=0)
+    
+    # Notification preferences
+    sms_notifications = models.BooleanField(default=True, help_text="Receive SMS for nearby jobs")
+    call_notifications = models.BooleanField(default=False, help_text="Receive calls for nearby jobs")
     
     # Profile status
     is_verified = models.BooleanField(default=False)
@@ -115,10 +159,10 @@ class MasonProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        db_table = 'mason_profiles'
+        db_table = 'mistri_profiles'
     
     def __str__(self):
-        return f"Mason: {self.user.name}"
+        return f"Mistri: {self.user.name}"
 
 
 class TraderProfile(models.Model):

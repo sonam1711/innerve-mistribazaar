@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, MasonProfile, TraderProfile
+from .models import User, ContractorProfile, MistriProfile, TraderProfile
 
 
 @admin.register(User)
@@ -26,10 +26,17 @@ class UserAdmin(BaseUserAdmin):
     )
 
 
-@admin.register(MasonProfile)
-class MasonProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'daily_rate', 'experience_years', 'completed_jobs', 'is_verified')
+@admin.register(ContractorProfile)
+class ContractorProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'company_name', 'experience_years', 'completed_projects', 'is_verified')
     list_filter = ('is_verified', 'is_available')
+    search_fields = ('user__name', 'company_name')
+
+
+@admin.register(MistriProfile)
+class MistriProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'daily_rate', 'experience_years', 'completed_jobs', 'is_verified', 'sms_notifications')
+    list_filter = ('is_verified', 'is_available', 'sms_notifications', 'call_notifications')
     search_fields = ('user__name', 'skills')
 
 
