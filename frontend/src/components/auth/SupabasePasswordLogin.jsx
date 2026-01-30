@@ -36,9 +36,7 @@ const SupabasePasswordLogin = ({ onLoginSuccess }) => {
             }
         } catch (error) {
             console.error('Login error:', error)
-            if (error.message.includes('Email not confirmed')) {
-                toast.error('Please verify your email before logging in')
-            } else if (error.message.includes('Invalid login credentials')) {
+            if (error.message.includes('Invalid login credentials')) {
                 toast.error('Invalid email or password')
             } else {
                 toast.error(error.message || 'Failed to login')

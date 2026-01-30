@@ -79,7 +79,7 @@ const SupabasePasswordAuth = ({ onSignupSuccess, initialData = {} }) => {
             if (error) throw error
 
             if (data.user) {
-                toast.success('Account created! Please check your email to verify.')
+                toast.success('Account created successfully!')
                 onSignupSuccess(data.session, {
                     name: formData.name.trim(),
                     phone: formData.phone.replace(/\s/g, ''),
