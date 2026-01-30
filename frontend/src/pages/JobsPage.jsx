@@ -13,7 +13,8 @@ const JobsPage = () => {
 
   useEffect(() => {
     if (user.role === 'CONSUMER') {
-      fetchJobs()
+      // For consumers, fetch their jobs (backend automatically filters)
+      fetchJobs({ my_jobs: true })
     } else {
       fetchNearbyJobs(filters.radius)
     }

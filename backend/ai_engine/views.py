@@ -8,6 +8,7 @@ from rest_framework import status
 from .budget_estimator import BudgetEstimator
 from .recommender import Recommender
 from .room_visualizer import RoomVisualizer
+from .house_designer import HouseDesigner
 from bids.models import Bid
 from jobs.models import Job
 
@@ -151,6 +152,7 @@ class RecommendProvidersView(APIView):
 class VisualizeRoomView(APIView):
     """
     Generate room visualization using AI
+    Supports both URL and file upload
     """
     
     permission_classes = [IsAuthenticated]
@@ -160,18 +162,21 @@ class VisualizeRoomView(APIView):
         Generate visualization
         
         Expects:
-        - image_url: URL of current room image
+        - image_url: URL of current room image (OR)
+        - image_file: Uploaded image file
         - prompt: Description of desired changes
         - style: Visualization style (optional)
         """
         
         image_url = request.data.get('image_url')
+        image_file = request.FILES.get('image_file')
         prompt = request.data.get('prompt')
         style = request.data.get('style', 'realistic')
         
-        if not image_url or not prompt:
+        # Must have either URL or file
+        if not (image_url or image_file) or not prompt:
             return Response({
-                'error': 'image_url and prompt are required'
+                'error': 'Either image_url or image_file, and prompt are required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Validate prompt
@@ -181,13 +186,33 @@ class VisualizeRoomView(APIView):
                 'error': message
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Generate visualization
-        result = RoomVisualizer.generate_visualization(image_url, prompt, style)
-        
-        if result['status'] == 'error':
-            return Response(result, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        return Response(result, status=status.HTTP_200_OK)
+        # Process based on input type
+        try:
+            if image_file:
+                # Process uploaded file
+                image_base64 = RoomVisualizer.process_image_file(image_file)
+                result = RoomVisualizer.generate_visualization(
+                    image_base64, prompt, style, is_file=True
+                )
+            else:
+                # Use URL
+                result = RoomVisualizer.generate_visualization(
+                    image_url, prompt, style, is_file=False
+                )
+            
+            if result['status'] == 'error':
+                return Response(result, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            return Response(result, status=status.HTTP_200_OK)
+            
+        except ValueError as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                'error': f'Failed to process request: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class VisualizationStylesView(APIView):
@@ -252,3 +277,54 @@ class CreateJobFromVisualizationView(APIView):
             }, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class HouseDesignView(APIView):
+    """
+    AI House Designer - Conversational house design generation
+    """
+    
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        """
+        Handle house design conversation
+        
+        Expects:
+        - step: Current step number or 'complete'
+        - data: Dictionary with collected data
+        """
+        
+        try:
+            step = request.data.get('step', 1)
+            data = request.data.get('data', {})
+            
+            # Validate input
+            if not isinstance(data, dict):
+                return Response({
+                    'success': False,
+                    'error': 'Invalid data format. Expected dictionary.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Get next question or final design
+            result = HouseDesigner.conversational_flow(step, data)
+            
+            # Check if there was an error
+            if isinstance(result, dict) and result.get('success') == False:
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response(result, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': f'Failed to process answer: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def get(self, request):
+        """
+        Get initial question to start house design flow
+        """
+        result = HouseDesigner.conversational_flow(1, {})
+        return Response(result, status=status.HTTP_200_OK)
+

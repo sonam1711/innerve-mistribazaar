@@ -66,17 +66,30 @@ class JobListView(generics.ListAPIView):
         
         # Role-specific filters
         if user.role == 'CONSUMER':
-            # Show only user's jobs
-            my_jobs = self.request.query_params.get('my_jobs', None)
-            if my_jobs:
-                queryset = queryset.filter(consumer=user)
+            # Consumers should ALWAYS see only their own jobs
+            queryset = queryset.filter(consumer=user)
         
         elif user.role in ['MASON', 'TRADER']:
-            # Show open jobs within delivery radius
+            # Show open jobs
             queryset = queryset.filter(status='OPEN')
             
-            # Filter by location if user has coordinates
-            if user.latitude and user.longitude:
+            # Get location from query params (live location) or fall back to user's stored location
+            latitude = self.request.query_params.get('latitude')
+            longitude = self.request.query_params.get('longitude')
+            
+            if latitude and longitude:
+                try:
+                    latitude = float(latitude)
+                    longitude = float(longitude)
+                except (ValueError, TypeError):
+                    latitude = user.latitude
+                    longitude = user.longitude
+            else:
+                latitude = user.latitude
+                longitude = user.longitude
+            
+            # Filter by location if coordinates available
+            if latitude and longitude:
                 radius_km = self.request.query_params.get('radius', 50)  # Default 50km
                 try:
                     radius_km = float(radius_km)
@@ -86,14 +99,23 @@ class JobListView(generics.ListAPIView):
                 # Filter jobs (this is a simple filter, for production use PostGIS)
                 nearby_jobs = []
                 for job in queryset:
-                    distance = calculate_distance(
-                        user.latitude, user.longitude,
-                        job.latitude, job.longitude
-                    )
-                    if distance <= radius_km:
-                        nearby_jobs.append(job.id)
+                    # Skip jobs without valid location data
+                    if not job.latitude or not job.longitude:
+                        continue
+                    
+                    try:
+                        distance = calculate_distance(
+                            latitude, longitude,
+                            job.latitude, job.longitude
+                        )
+                        if distance <= radius_km:
+                            nearby_jobs.append(job.id)
+                    except (ValueError, TypeError):
+                        # Skip jobs with invalid coordinates
+                        continue
                 
                 queryset = queryset.filter(id__in=nearby_jobs)
+            # If no location available, show all open jobs (no location filter)
         
         return queryset.order_by('-created_at')
 
@@ -139,8 +161,26 @@ class NearbyJobsView(APIView):
     def get(self, request):
         user = request.user
         
-        # If user doesn't have location, return empty list instead of error
-        if not user.latitude or not user.longitude:
+        # Get location from query params (live location) or fall back to user's stored location
+        latitude = request.query_params.get('latitude')
+        longitude = request.query_params.get('longitude')
+        
+        # Convert to float if provided
+        if latitude and longitude:
+            try:
+                latitude = float(latitude)
+                longitude = float(longitude)
+            except (ValueError, TypeError):
+                latitude = None
+                longitude = None
+        
+        # Fall back to user's stored location if not provided in query
+        if not latitude or not longitude:
+            latitude = user.latitude
+            longitude = user.longitude
+        
+        # If still no location available, return message
+        if not latitude or not longitude:
             return Response({
                 'results': [],
                 'message': 'Please update your location in profile to see nearby jobs'
@@ -158,14 +198,22 @@ class NearbyJobsView(APIView):
         # Calculate distances and filter
         nearby_jobs = []
         for job in jobs:
-            distance = calculate_distance(
-                user.latitude, user.longitude,
-                job.latitude, job.longitude
-            )
-            if distance <= radius_km:
-                job_data = JobListSerializer(job).data
-                job_data['distance_km'] = round(distance, 2)
-                nearby_jobs.append(job_data)
+            # Skip jobs without valid location data
+            if not job.latitude or not job.longitude:
+                continue
+            
+            try:
+                distance = calculate_distance(
+                    latitude, longitude,
+                    job.latitude, job.longitude
+                )
+                if distance <= radius_km:
+                    job_data = JobListSerializer(job).data
+                    job_data['distance_km'] = round(distance, 2)
+                    nearby_jobs.append(job_data)
+            except (ValueError, TypeError) as e:
+                # Skip jobs with invalid coordinates
+                continue
         
         # Sort by distance
         nearby_jobs.sort(key=lambda x: x['distance_km'])

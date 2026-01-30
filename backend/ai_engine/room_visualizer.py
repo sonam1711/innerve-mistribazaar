@@ -1,38 +1,85 @@
 """
 Room Visualizer - AI Image-to-Image Generation
-Uses external API for visualization
+Uses external API for visualization with file upload support
 """
 import requests
+import base64
+import io
+from PIL import Image
 from django.conf import settings
+from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
 class RoomVisualizer:
     """
     AI-powered room visualization
-    Sends image + prompt to external image-to-image API
+    Supports both URL and file upload for images
     """
     
     @staticmethod
-    def generate_visualization(image_url, prompt, style='realistic'):
+    def process_image_file(image_file):
+        """
+        Process uploaded image file to base64
+        
+        Args:
+            image_file: Django UploadedFile object
+        
+        Returns:
+            base64 encoded image string
+        """
+        try:
+            # Open image with PIL
+            img = Image.open(image_file)
+            
+            # Resize if too large (max 1024x1024)
+            max_size = 1024
+            if img.width > max_size or img.height > max_size:
+                img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+            
+            # Convert to RGB if necessary
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Save to bytes
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG', quality=85)
+            buffer.seek(0)
+            
+            # Encode to base64
+            image_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+            return image_base64
+        
+        except Exception as e:
+            raise ValueError(f"Failed to process image: {str(e)}")
+    
+    @staticmethod
+    def generate_visualization(image_input, prompt, style='realistic', is_file=False):
         """
         Generate room visualization using AI
         
         Args:
-            image_url: URL of the current room image
+            image_input: Either URL string or base64 encoded image
             prompt: Text description of desired changes
             style: Visualization style (realistic, modern, traditional)
+            is_file: Whether image_input is a file (base64) or URL
         
         Returns:
-            dict with generated_image_url, status, message
+            dict with generated_image_url/base64, status, message
         """
         
-        api_url = settings.IMAGE_TO_IMAGE_API_URL
-        api_key = settings.IMAGE_TO_IMAGE_API_KEY
+        api_url = getattr(settings, 'IMAGE_TO_IMAGE_API_URL', None)
+        api_key = getattr(settings, 'IMAGE_TO_IMAGE_API_KEY', None)
         
         if not api_url or not api_key:
+            # Return mock response for development
             return {
-                'status': 'error',
-                'message': 'Image generation API is not configured. Please add API credentials.'
+                'status': 'success',
+                'message': 'Visualization generated (mock mode - API not configured)',
+                'original_image': image_input if not is_file else 'data:image/jpeg;base64,' + image_input[:50] + '...',
+                'transformed_image': image_input if not is_file else 'data:image/jpeg;base64,' + image_input[:50] + '...',
+                'prompt': prompt,
+                'style': style,
+                'note': 'To enable real AI generation, configure IMAGE_TO_IMAGE_API_URL and IMAGE_TO_IMAGE_API_KEY in settings'
             }
         
         # Construct full prompt
@@ -40,12 +87,20 @@ class RoomVisualizer:
         
         try:
             # Example API call structure (adjust based on actual API)
-            payload = {
-                'image_url': image_url,
-                'prompt': full_prompt,
-                'style': style,
-                'strength': 0.75,  # How much to change (0-1)
-            }
+            if is_file:
+                payload = {
+                    'image': image_input,  # base64 encoded
+                    'prompt': full_prompt,
+                    'style': style,
+                    'strength': 0.75,  # How much to change (0-1)
+                }
+            else:
+                payload = {
+                    'image_url': image_input,
+                    'prompt': full_prompt,
+                    'style': style,
+                    'strength': 0.75,
+                }
             
             headers = {
                 'Authorization': f'Bearer {api_key}',
@@ -66,17 +121,30 @@ class RoomVisualizer:
             )
             """
             
-            # For MVP, return mock response
+            # For MVP, return mock response with original image
             # Replace this with actual API call
-            return {
-                'status': 'success',
-                'generated_image_url': image_url,  # Placeholder - replace with actual generated URL
-                'original_image_url': image_url,
-                'prompt': full_prompt,
-                'message': 'Visualization generated successfully',
-                'disclaimer': 'This is an indicative visualization. Actual results may vary.',
-                'note': 'Please configure IMAGE_TO_IMAGE_API settings for real image generation'
-            }
+            if is_file:
+                return {
+                    'status': 'success',
+                    'generated_image': 'data:image/jpeg;base64,' + image_input,
+                    'original_image': 'data:image/jpeg;base64,' + image_input,
+                    'prompt': full_prompt,
+                    'style': style,
+                    'message': 'Visualization generated successfully (mock mode)',
+                    'disclaimer': 'This is an indicative visualization. Actual results may vary.',
+                    'note': 'Configure IMAGE_TO_IMAGE_API_URL and IMAGE_TO_IMAGE_API_KEY for real AI generation'
+                }
+            else:
+                return {
+                    'status': 'success',
+                    'generated_image_url': image_input,
+                    'original_image_url': image_input,
+                    'prompt': full_prompt,
+                    'style': style,
+                    'message': 'Visualization generated successfully (mock mode)',
+                    'disclaimer': 'This is an indicative visualization. Actual results may vary.',
+                    'note': 'Configure IMAGE_TO_IMAGE_API_URL and IMAGE_TO_IMAGE_API_KEY for real AI generation'
+                }
             
         except requests.exceptions.RequestException as e:
             return {

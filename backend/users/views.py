@@ -23,8 +23,15 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
     
     def create(self, request, *args, **kwargs):
+        print("===== REGISTRATION DEBUG =====")
+        print(f"Request data: {request.data}")
+        
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        
+        if not serializer.is_valid():
+            print(f"Validation errors: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
         user = serializer.save()
         
         # Generate JWT tokens

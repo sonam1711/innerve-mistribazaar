@@ -5,7 +5,8 @@ from django.urls import path
 from .views import (
     BudgetEstimateView, DirectBudgetEstimateView,
     RecommendProvidersView, VisualizeRoomView,
-    VisualizationStylesView, CreateJobFromVisualizationView
+    VisualizationStylesView, CreateJobFromVisualizationView,
+    HouseDesignView
 )
 
 urlpatterns = [
@@ -20,4 +21,7 @@ urlpatterns = [
     path('visualize/', VisualizeRoomView.as_view(), name='visualize-room'),
     path('visualize/styles/', VisualizationStylesView.as_view(), name='visualization-styles'),
     path('visualize/create-job/', CreateJobFromVisualizationView.as_view(), name='create-job-from-visualization'),
+    
+    # House Designer (NEW)
+    path('house-design/', HouseDesignView.as_view(), name='house-design'),
 ]

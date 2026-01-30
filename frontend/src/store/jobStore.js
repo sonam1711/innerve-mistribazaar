@@ -22,10 +22,13 @@ export const useJobStore = create((set, get) => ({
     try {
       const params = new URLSearchParams({ ...get().filters, ...filters })
       const response = await api.get(`/jobs/?${params}`)
-      set({ jobs: response.data.results || response.data, isLoading: false })
+      // Handle paginated response (results array) or direct array
+      const jobsData = response.data.results || response.data
+      set({ jobs: Array.isArray(jobsData) ? jobsData : [], isLoading: false })
     } catch (error) {
       set({ isLoading: false })
       toast.error('Failed to fetch jobs')
+      console.error('Fetch jobs error:', error)
     }
   },
 
