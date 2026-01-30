@@ -1,98 +1,76 @@
 """
-Authentication views for user registration and login
+User views for Supabase-authenticated API
+Handles profile management after Supabase authentication
 """
 from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate
-from .models import User
-from .serializers import UserRegistrationSerializer, UserSerializer, UserUpdateSerializer
-from .otp_manager import OTPManager
+from .models import User, WorkerProfile, TraderProfile, ConstructorProfile
+from .serializers import (
+    UserSerializer, UserUpdateSerializer, 
+    ProfileCompletionSerializer,
+    WorkerProfileSerializer, TraderProfileSerializer, ConstructorProfileSerializer
+)
 
 
-class RegisterView(generics.CreateAPIView):
+class ProfileCompletionView(APIView):
     """
-    User registration endpoint
-    Accepts: name, phone, password, role, and role-specific profile data
+    Complete user profile after Supabase authentication
+    Called after OTP verification to set name, role, and profile details
     """
-    
-    queryset = User.objects.all()
-    permission_classes = [AllowAny]
-    serializer_class = UserRegistrationSerializer
-    
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        
-        # Generate JWT tokens
-        refresh = RefreshToken.for_user(user)
-        
-        return Response({
-            'user': UserSerializer(user).data,
-            'tokens': {
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-            },
-            'message': 'User registered successfully'
-        }, status=status.HTTP_201_CREATED)
-
-
-class LoginView(APIView):
-    """
-    User login endpoint
-    Accepts: phone, password
-    Returns: JWT tokens and user data
-    """
-    
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
-        phone = request.data.get('phone')
-        password = request.data.get('password')
+        user = request.user
         
-        if not phone or not password:
+        # Check if profile already completed
+        if user.name and user.role:
             return Response({
-                'error': 'Phone and password are required'
+                'error': 'Profile already completed',
+                'user': UserSerializer(user).data
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Authenticate user
-        user = authenticate(request, phone=phone, password=password)
+        serializer = ProfileCompletionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        if user is None:
-            return Response({
-                'error': 'Invalid credentials'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+        data = serializer.validated_data
         
-        if not user.is_active:
-            return Response({
-                'error': 'Account is disabled'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+        # Update user basic info
+        user.name = data.get('name')
+        user.role = data.get('role')
+        user.latitude = data.get('latitude')
+        user.longitude = data.get('longitude')
+        user.language = data.get('language', 'English')
+        user.save()
         
-        # Generate JWT tokens
-        refresh = RefreshToken.for_user(user)
+        # Create role-specific profile
+        if user.role == User.Role.WORKER and 'worker_profile' in data:
+            WorkerProfile.objects.create(user=user, **data['worker_profile'])
+        
+        elif user.role == User.Role.TRADER and 'trader_profile' in data:
+            TraderProfile.objects.create(user=user, **data['trader_profile'])
+        
+        elif user.role == User.Role.CONSTRUCTOR and 'constructor_profile' in data:
+            ConstructorProfile.objects.create(user=user, **data['constructor_profile'])
         
         return Response({
-            'user': UserSerializer(user).data,
-            'tokens': {
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-            },
-            'message': 'Login successful'
+            'message': 'Profile completed successfully',
+            'user': UserSerializer(user).data
         }, status=status.HTTP_200_OK)
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
     """
     Get or update current user's profile
+    GET: Retrieve current user's profile
+    PUT/PATCH: Update current user's profile
     """
-    
     permission_classes = [IsAuthenticated]
     
     def get_serializer_class(self):
-        if self.request.method == 'PUT' or self.request.method == 'PATCH':
+        if self.request.method in ['PUT', 'PATCH']:
             return UserUpdateSerializer
         return UserSerializer
     
@@ -103,136 +81,96 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 class UserDetailView(generics.RetrieveAPIView):
     """
     Get details of any user by ID
+    Public endpoint for viewing other users' profiles
     """
-    
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
 
-class SendOTPView(APIView):
+class UserListView(generics.ListAPIView):
     """
-    Send OTP to phone number for authentication
+    List users with optional filtering
+    Query params: role, is_available
     """
-    permission_classes = [AllowAny]
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
     
-    def post(self, request):
-        phone = request.data.get('phone')
-        purpose = request.data.get('purpose', 'login')  # login or register
+    def get_queryset(self):
+        queryset = User.objects.all()
         
-        if not phone:
-            return Response({
-                'error': 'Phone number is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # Filter by role
+        role = self.request.query_params.get('role')
+        if role:
+            queryset = queryset.filter(role=role.upper())
         
-        # Check if user exists (for login)
-        if purpose == 'login':
-            user = User.objects.filter(phone=phone).first()
-            if not user:
-                return Response({
-                    'error': 'No account found with this phone number'
-                }, status=status.HTTP_404_NOT_FOUND)
+        # Filter by availability (for workers/constructors/traders)
+        is_available = self.request.query_params.get('is_available')
+        if is_available == 'true':
+            queryset = queryset.filter(
+                models.Q(worker_profile__is_available=True) |
+                models.Q(constructor_profile__is_available=True) |
+                models.Q(trader_profile__is_available=True)
+            )
         
-        # Send OTP
-        success, otp, message = OTPManager.send_otp(phone, purpose)
-        
-        if not success:
-            return Response({
-                'error': message
-            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
-        
-        response_data = {
-            'message': message,
-            'phone': phone
-        }
-        
-        # Include OTP in response for development only
-        if otp:
-            response_data['otp'] = otp
-        
-        return Response(response_data, status=status.HTTP_200_OK)
+        return queryset
 
 
-class VerifyOTPView(APIView):
+class WorkerProfileUpdateView(generics.RetrieveUpdateAPIView):
     """
-    Verify OTP and login user
+    Get or update worker profile for current user
+    Only accessible to users with WORKER role
     """
-    permission_classes = [AllowAny]
+    serializer_class = WorkerProfileSerializer
+    permission_classes = [IsAuthenticated]
     
-    def post(self, request):
-        phone = request.data.get('phone')
-        otp = request.data.get('otp')
-        purpose = request.data.get('purpose', 'login')
-        
-        if not phone or not otp:
+    def get_object(self):
+        user = self.request.user
+        if user.role != User.Role.WORKER:
             return Response({
-                'error': 'Phone number and OTP are required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'error': 'Only workers can access this endpoint'
+            }, status=status.HTTP_403_FORBIDDEN)
         
-        # Verify OTP
-        success, message = OTPManager.verify_otp(phone, otp, purpose)
-        
-        if not success:
-            return Response({
-                'error': message
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Get or create user
-        user = User.objects.filter(phone=phone).first()
-        
-        if not user:
-            return Response({
-                'error': 'User not found'
-            }, status=status.HTTP_404_NOT_FOUND)
-        
-        if not user.is_active:
-            return Response({
-                'error': 'Account is disabled'
-            }, status=status.HTTP_401_UNAUTHORIZED)
-        
-        # Generate JWT tokens
-        refresh = RefreshToken.for_user(user)
-        
-        return Response({
-            'user': UserSerializer(user).data,
-            'tokens': {
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-            },
-            'message': 'Login successful'
-        }, status=status.HTTP_200_OK)
+        # Get or create worker profile
+        profile, created = WorkerProfile.objects.get_or_create(user=user)
+        return profile
 
 
-class ResendOTPView(APIView):
+class TraderProfileUpdateView(generics.RetrieveUpdateAPIView):
     """
-    Resend OTP to phone number
+    Get or update trader profile for current user
+    Only accessible to users with TRADER role
     """
-    permission_classes = [AllowAny]
+    serializer_class = TraderProfileSerializer
+    permission_classes = [IsAuthenticated]
     
-    def post(self, request):
-        phone = request.data.get('phone')
-        purpose = request.data.get('purpose', 'login')
-        
-        if not phone:
+    def get_object(self):
+        user = self.request.user
+        if user.role != User.Role.TRADER:
             return Response({
-                'error': 'Phone number is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'error': 'Only traders can access this endpoint'
+            }, status=status.HTTP_403_FORBIDDEN)
         
-        # Resend OTP
-        success, otp, message = OTPManager.resend_otp(phone, purpose)
-        
-        if not success:
+        # Get or create trader profile
+        profile, created = TraderProfile.objects.get_or_create(user=user)
+        return profile
+
+
+class ConstructorProfileUpdateView(generics.RetrieveUpdateAPIView):
+    """
+    Get or update constructor profile for current user
+    Only accessible to users with CONSTRUCTOR role
+    """
+    serializer_class = ConstructorProfileSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_object(self):
+        user = self.request.user
+        if user.role != User.Role.CONSTRUCTOR:
             return Response({
-                'error': message
-            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+                'error': 'Only constructors can access this endpoint'
+            }, status=status.HTTP_403_FORBIDDEN)
         
-        response_data = {
-            'message': message,
-            'phone': phone
-        }
-        
-        # Include OTP in response for development only
-        if otp:
-            response_data['otp'] = otp
-        
-        return Response(response_data, status=status.HTTP_200_OK)
+        # Get or create constructor profile
+        profile, created = ConstructorProfile.objects.get_or_create(user=user)
+        return profile
