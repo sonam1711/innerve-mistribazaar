@@ -125,6 +125,7 @@ SUPABASE_JWT_SECRET = config('SUPABASE_JWT_SECRET', default='')
 # CORS Settings
 CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
 CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://localhost:5173').split(',')
+CORS_ALLOW_CREDENTIALS = True
 
 # Cloudinary settings (for image uploads)
 CLOUDINARY_STORAGE = {
