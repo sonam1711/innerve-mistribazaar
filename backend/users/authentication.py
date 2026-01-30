@@ -32,23 +32,26 @@ class SupabaseAuthentication(authentication.BaseAuthentication):
             )
             
             supabase_user_id = decoded.get('sub')
-            phone = decoded.get('phone')
+            email = decoded.get('email')
             
             if not supabase_user_id:
                 raise exceptions.AuthenticationFailed('Invalid token: missing user ID')
+            
+            if not email:
+                raise exceptions.AuthenticationFailed('Invalid token: missing email')
             
             # Get or create Django user linked to Supabase user
             user, created = User.objects.get_or_create(
                 supabase_id=supabase_user_id,
                 defaults={
-                    'phone': phone or '',
-                    'name': decoded.get('user_metadata', {}).get('name', ''),
+                    'email': email,
+                    'name': decoded.get('user_metadata', {}).get('name', email.split('@')[0]),
                 }
             )
             
-            # Update phone if it changed in Supabase
-            if phone and user.phone != phone:
-                user.phone = phone
+            # Update email if it changed in Supabase
+            if email and user.email != email:
+                user.email = email
                 user.save()
             
             return (user, token)

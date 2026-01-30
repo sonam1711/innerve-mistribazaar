@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { UserPlus, Users, Hammer, Building2, ShoppingCart, MapPin } from 'lucide-react'
-import SupabaseOTP from '../components/auth/SupabaseOTP'
+import SupabaseEmailAuth from '../components/auth/SupabaseEmailAuth'
 import { useAuthStore } from '../store/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { getCurrentLocation } from '../utils/location'
@@ -11,7 +11,7 @@ import axios from 'axios'
 const RegisterPage = () => {
   const navigate = useNavigate()
   const { setSession, profile } = useAuthStore()
-  const [step, setStep] = useState('otp') // 'otp', 'profile', 'role-profile'
+  const [step, setStep] = useState('email') // 'email', 'profile', 'role-profile'
   const [formData, setFormData] = useState({
     name: '',
     role: '',
@@ -22,7 +22,7 @@ const RegisterPage = () => {
   const [profileData, setProfileData] = useState({})
   const [loading, setLoading] = useState(false)
 
-  const handleOTPSuccess = async (session) => {
+  const handleEmailSuccess = async (session) => {
     // Store Supabase session
     await setSession(session)
 
@@ -110,8 +110,8 @@ const RegisterPage = () => {
     await submitProfile()
   }
 
-  // OTP Step
-  if (step === 'otp') {
+  // Email Verification Step
+  if (step === 'email') {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4">
         <div className="max-w-md w-full">
@@ -121,7 +121,7 @@ const RegisterPage = () => {
           </div>
 
           <div className="bg-white p-8 rounded-lg shadow-md">
-            <SupabaseOTP onLoginSuccess={handleOTPSuccess} />
+            <SupabaseEmailAuth onLoginSuccess={handleEmailSuccess} />
 
             <p className="mt-6 text-center text-gray-600">
               Already have an account?{' '}
@@ -178,8 +178,8 @@ const RegisterPage = () => {
                         type="button"
                         onClick={() => setFormData({ ...formData, role: role.value })}
                         className={`p-4 border-2 rounded-lg transition-all text-left ${formData.role === role.value
-                            ? 'border-primary-600 bg-primary-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-primary-600 bg-primary-50'
+                          : 'border-gray-200 hover:border-gray-300'
                           }`}
                       >
                         <Icon className={`w-6 h-6 mb-2 ${formData.role === role.value ? 'text-primary-600' : 'text-gray-600'

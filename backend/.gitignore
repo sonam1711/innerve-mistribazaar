@@ -11,3 +11,4 @@ env/
 media/
 staticfiles/
 .DS_Store
+.env.example

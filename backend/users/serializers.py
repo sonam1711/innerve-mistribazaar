@@ -53,17 +53,17 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'supabase_id', 'name', 'phone', 'role', 
+            'id', 'supabase_id', 'name', 'email', 'phone', 'role', 
             'latitude', 'longitude', 'rating', 'language', 
             'created_at', 'worker_profile', 'trader_profile', 'constructor_profile'
         ]
-        read_only_fields = ['id', 'supabase_id', 'rating', 'created_at']
+        read_only_fields = ['id', 'supabase_id', 'email', 'rating', 'created_at']
 
 
 class ProfileCompletionSerializer(serializers.Serializer):
     """
     Serializer for completing user profile after Supabase authentication
-    Used after OTP verification to set role and profile details
+    Used after email verification to set role and profile details
     """
     name = serializers.CharField(max_length=255)
     role = serializers.ChoiceField(choices=User.Role.choices)

@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-production')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -102,7 +102,6 @@ AUTH_USER_MODEL = 'users.User'
 
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
-    'users.backends.PhoneBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 
@@ -124,11 +123,8 @@ SUPABASE_KEY = config('SUPABASE_KEY', default='')
 SUPABASE_JWT_SECRET = config('SUPABASE_JWT_SECRET', default='')
 
 # CORS Settings
-CORS_ALLOW_ALL_ORIGINS = True  # For development only
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-]
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://localhost:5173').split(',')
 
 # Cloudinary settings (for image uploads)
 CLOUDINARY_STORAGE = {

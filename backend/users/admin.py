@@ -5,14 +5,14 @@ from .models import User, WorkerProfile, TraderProfile, ConstructorProfile
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('phone', 'name', 'role', 'supabase_id', 'rating', 'created_at')
+    list_display = ('email', 'name', 'role', 'phone', 'rating', 'created_at')
     list_filter = ('role', 'is_active', 'is_staff')
-    search_fields = ('phone', 'name', 'supabase_id')
+    search_fields = ('email', 'name', 'phone', 'supabase_id')
     ordering = ('-created_at',)
     
     fieldsets = (
-        (None, {'fields': ('phone', 'supabase_id')}),
-        ('Personal Info', {'fields': ('name', 'role', 'language')}),
+        (None, {'fields': ('email', 'supabase_id')}),
+        ('Personal Info', {'fields': ('name', 'phone', 'role', 'language')}),
         ('Location', {'fields': ('latitude', 'longitude')}),
         ('Stats', {'fields': ('rating',)}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser')}),
@@ -21,7 +21,7 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('phone', 'name', 'role', 'supabase_id'),
+            'fields': ('email', 'name', 'role', 'phone', 'supabase_id'),
         }),
     )
     

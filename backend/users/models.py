@@ -9,27 +9,29 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class UserManager(BaseUserManager):
-    """Custom user manager for phone-based authentication"""
+    """Custom user manager for email-based authentication"""
     
-    def create_user(self, phone, name, password=None, **extra_fields):
-        if not phone:
-            raise ValueError('Phone number is required')
+    def create_user(self, email, name, password=None, **extra_fields):
+        if not email:
+            raise ValueError('Email is required')
         
-        user = self.model(phone=phone, name=name, **extra_fields)
+        email = self.normalize_email(email)
+        user = self.model(email=email, name=name, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
     
-    def create_superuser(self, phone, name, password=None, **extra_fields):
+    def create_superuser(self, email, name, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        return self.create_user(phone, name, password, **extra_fields)
+        return self.create_user(email, name, password, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
     """
     Custom User model with role-based access
-    Roles: CONSUMER, MASON, TRADER
+    Roles: CUSTOMER, WORKER, CONSTRUCTOR, TRADER
+    Supports Supabase email authentication
     """
     
     class Role(models.TextChoices):
@@ -41,7 +43,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     id = models.BigAutoField(primary_key=True)
     supabase_id = models.UUIDField(unique=True, null=True, blank=True, help_text="User ID from Supabase Auth")
     name = models.CharField(max_length=255)
-    phone = models.CharField(max_length=15, unique=True)
+    email = models.EmailField(unique=True, help_text="Email address for authentication")
+    phone = models.CharField(max_length=15, unique=True, null=True, blank=True, help_text="Optional phone number")
     role = models.CharField(max_length=15, choices=Role.choices, default=Role.CUSTOMER)
     
     # Location (latitude, longitude)
@@ -66,12 +69,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     
     objects = UserManager()
     
-    USERNAME_FIELD = 'phone'
+    USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['name']
     
     class Meta:
         db_table = 'users'
         indexes = [
+            models.Index(fields=['email']),
             models.Index(fields=['phone']),
             models.Index(fields=['supabase_id']),
             models.Index(fields=['role']),
@@ -79,7 +83,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         ]
     
     def __str__(self):
-        return f"{self.name} ({self.phone}) - {self.role}"
+        return f"{self.name} ({self.email}) - {self.role}"
 
 
 class WorkerProfile(models.Model):
