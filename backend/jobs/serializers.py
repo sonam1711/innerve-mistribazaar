@@ -32,12 +32,31 @@ class JobSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
         fields = [
-            'id', 'consumer', 'job_type', 'title', 'description',
+            'id', 'consumer', 'category', 'job_type', 'title', 'description',
             'budget_min', 'budget_max', 'latitude', 'longitude', 'address',
             'status', 'selected_provider', 'created_at', 'updated_at', 'deadline',
             'images', 'consumer_details', 'selected_provider_details', 'image_urls'
         ]
         read_only_fields = ['id', 'consumer', 'created_at', 'updated_at']
+    
+    def validate(self, attrs):
+        """Validate job category and type"""
+        category = attrs.get('category')
+        job_type = attrs.get('job_type')
+        
+        # PROJECT category should have construction-related types
+        if category == 'PROJECT' and job_type not in ['NEW_CONSTRUCTION', 'RENOVATION']:
+            raise serializers.ValidationError(
+                "PROJECT category should have NEW_CONSTRUCTION or RENOVATION type."
+            )
+        
+        # JOB category should have repair/maintenance types
+        if category == 'JOB' and job_type in ['NEW_CONSTRUCTION']:
+            raise serializers.ValidationError(
+                "JOB category cannot have NEW_CONSTRUCTION type."
+            )
+        
+        return attrs
     
     def create(self, validated_data):
         """Create job with images"""
@@ -62,7 +81,7 @@ class JobListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
         fields = [
-            'id', 'title', 'job_type', 'status', 'budget_min', 'budget_max',
+            'id', 'category', 'title', 'job_type', 'status', 'budget_min', 'budget_max',
             'latitude', 'longitude', 'consumer_name', 'created_at',
             'image_count', 'bid_count'
         ]
@@ -85,7 +104,7 @@ class JobDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
         fields = [
-            'id', 'job_type', 'title', 'description',
+            'id', 'category', 'job_type', 'title', 'description',
             'budget_min', 'budget_max', 'latitude', 'longitude', 'address',
             'status', 'deadline', 'created_at', 'updated_at',
             'consumer_details', 'selected_provider_details',

@@ -1,8 +1,8 @@
 """
-Serializers for Bid
+Serializers for Bid and JobAcceptance
 """
 from rest_framework import serializers
-from .models import Bid
+from .models import Bid, JobAcceptance
 from users.serializers import UserSerializer
 from jobs.serializers import JobListSerializer
 
@@ -27,6 +27,12 @@ class BidSerializer(serializers.ModelSerializer):
         
         job = attrs.get('job')
         request = self.context.get('request')
+        
+        # Check if job category is PROJECT (only projects accept bids)
+        if job.category != 'PROJECT':
+            raise serializers.ValidationError(
+                "Only PROJECT category jobs accept bids. JOB category uses job acceptance by mistri."
+            )
         
         # Check if job is open
         if job.status != 'OPEN':
@@ -84,5 +90,82 @@ class BidUpdateSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             if request and instance.bidder != request.user:
                 raise serializers.ValidationError("Only the bidder can withdraw their bid.")
+        
+        return value
+
+
+class JobAcceptanceSerializer(serializers.ModelSerializer):
+    """Serializer for mistri job acceptances"""
+    
+    mistri_details = UserSerializer(source='mistri', read_only=True)
+    job_details = JobListSerializer(source='job', read_only=True)
+    
+    class Meta:
+        model = JobAcceptance
+        fields = [
+            'id', 'job', 'mistri', 'status', 'message', 
+            'proposed_start_date', 'created_at', 'updated_at',
+            'mistri_details', 'job_details'
+        ]
+        read_only_fields = ['id', 'mistri', 'created_at', 'updated_at']
+    
+    def validate(self, attrs):
+        """Validate job acceptance constraints"""
+        
+        job = attrs.get('job')
+        request = self.context.get('request')
+        
+        # Check if job category is JOB (only JOB category uses mistri acceptance)
+        if job.category != 'JOB':
+            raise serializers.ValidationError(
+                "Only JOB category jobs can be accepted by mistri. PROJECT category uses bidding by contractors/traders."
+            )
+        
+        # Check if job is open
+        if job.status != 'OPEN':
+            raise serializers.ValidationError("This job is no longer open for acceptance.")
+        
+        # Check if mistri already responded to this job
+        if request and JobAcceptance.objects.filter(job=job, mistri=request.user).exists():
+            raise serializers.ValidationError("You have already responded to this job.")
+        
+        return attrs
+
+
+class JobAcceptanceListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for job acceptance listings"""
+    
+    mistri_name = serializers.CharField(source='mistri.name', read_only=True)
+    mistri_rating = serializers.DecimalField(source='mistri.rating', max_digits=3, decimal_places=2, read_only=True)
+    job_title = serializers.CharField(source='job.title', read_only=True)
+    
+    class Meta:
+        model = JobAcceptance
+        fields = [
+            'id', 'job', 'job_title', 'mistri', 'mistri_name', 'mistri_rating',
+            'status', 'proposed_start_date', 'created_at'
+        ]
+
+
+class JobAcceptanceUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating job acceptance status"""
+    
+    class Meta:
+        model = JobAcceptance
+        fields = ['status']
+    
+    def validate_status(self, value):
+        """Validate status transitions"""
+        
+        instance = self.instance
+        request = self.context.get('request')
+        
+        # Only mistri can update their own acceptance
+        if request and instance.mistri != request.user:
+            raise serializers.ValidationError("You can only update your own job acceptance.")
+        
+        # Can only move from PENDING to ACCEPTED or REJECTED
+        if instance.status != 'PENDING':
+            raise serializers.ValidationError("Job acceptance has already been finalized.")
         
         return value
