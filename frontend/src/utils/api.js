@@ -17,7 +17,11 @@ const api = axios.create({
 // Request interceptor - Add auth token
 api.interceptors.request.use(
   (config) => {
+    // Supabase handles session persistence in localStorage
+    // The key format is usually `sb-<project-ref>-auth-token`
+    // But we also manually simplified it in authStore to 'access_token'
     const token = localStorage.getItem('access_token')
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -28,48 +32,27 @@ api.interceptors.request.use(
   }
 )
 
-// Response interceptor - Handle token refresh
+// Response interceptor - Simple error handling
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config
-
-    // If 401 and not already retried, try to refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
-
-      try {
-        const refreshToken = localStorage.getItem('refresh_token')
-        const response = await axios.post(`${API_BASE_URL}/users/token/refresh/`, {
-          refresh: refreshToken,
-        })
-
-        const { access } = response.data
-        localStorage.setItem('access_token', access)
-
-        originalRequest.headers.Authorization = `Bearer ${access}`
-        return api(originalRequest)
-      } catch (refreshError) {
-        // Refresh failed, logout user
-        useAuthStore.getState().logout()
-        window.location.href = '/login'
-        return Promise.reject(refreshError)
-      }
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid
+      useAuthStore.getState().logout()
     }
-
     return Promise.reject(error)
   }
 )
 
 // OTP API functions
 export const otpAPI = {
-  sendOTP: (phone, purpose = 'login') => 
+  sendOTP: (phone, purpose = 'login') =>
     api.post('/users/send-otp/', { phone, purpose }),
-  
-  verifyOTP: (phone, otp, purpose = 'login') => 
+
+  verifyOTP: (phone, otp, purpose = 'login') =>
     api.post('/users/verify-otp/', { phone, otp, purpose }),
-  
-  resendOTP: (phone, purpose = 'login') => 
+
+  resendOTP: (phone, purpose = 'login') =>
     api.post('/users/resend-otp/', { phone, purpose }),
 }
 

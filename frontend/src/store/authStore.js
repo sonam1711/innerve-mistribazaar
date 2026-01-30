@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { supabase } from '../lib/supabase'
 import api from '../utils/api'
 import toast from 'react-hot-toast'
 
@@ -11,78 +12,52 @@ export const useAuthStore = create(
   persist(
     (set) => ({
       user: null,
-      tokens: null,
+      session: null,
       isLoading: false,
 
-      // Login
-      login: async (phone, password) => {
-        set({ isLoading: true })
-        try {
-          const response = await api.post('/users/login/', { phone, password })
-          const { user, tokens } = response.data
-
-          // Store tokens
-          localStorage.setItem('access_token', tokens.access)
-          localStorage.setItem('refresh_token', tokens.refresh)
-
-          set({ user, tokens, isLoading: false })
-          toast.success('Login successful!')
-          return true
-        } catch (error) {
-          set({ isLoading: false })
-          toast.error(error.response?.data?.error || 'Login failed')
-          return false
+      // Initialize session
+      initialize: async () => {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          set({ session, user: session.user })
+          localStorage.setItem('access_token', session.access_token)
         }
+
+        // Listen for auth changes
+        supabase.auth.onAuthStateChange((_event, session) => {
+          set({ session, user: session?.user || null })
+          if (session) {
+            localStorage.setItem('access_token', session.access_token)
+          } else {
+            localStorage.removeItem('access_token')
+          }
+        })
       },
 
-      // Register
-      register: async (userData) => {
-        set({ isLoading: true })
-        try {
-          const response = await api.post('/users/register/', userData)
-          const { user, tokens } = response.data
-
-          // Store tokens
-          localStorage.setItem('access_token', tokens.access)
-          localStorage.setItem('refresh_token', tokens.refresh)
-
-          set({ user, tokens, isLoading: false })
-          toast.success('Registration successful!')
-          return true
-        } catch (error) {
-          set({ isLoading: false })
-          const errorMsg = error.response?.data?.error || 'Registration failed'
-          toast.error(errorMsg)
-          return false
-        }
+      // Login/Register is handled by SupabaseOTP component mostly
+      // This is for setting the session manually if needed
+      setSession: (session) => {
+        set({ session, user: session.user })
+        localStorage.setItem('access_token', session.access_token)
       },
 
       // Logout
-      logout: () => {
+      logout: async () => {
+        set({ isLoading: true })
+        await supabase.auth.signOut()
         localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        set({ user: null, tokens: null })
+        set({ user: null, session: null, isLoading: false })
         toast.success('Logged out successfully')
       },
 
-      // Update user profile
+      // Update user profile (custom backend)
       updateUser: (userData) => {
-        set({ user: userData })
-      },
-
-      // Fetch current user profile
-      fetchProfile: async () => {
-        try {
-          const response = await api.get('/users/profile/')
-          set({ user: response.data })
-        } catch (error) {
-          console.error('Failed to fetch profile:', error)
-        }
+        set({ user: { ...get().user, ...userData } })
       },
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ user: state.user, tokens: state.tokens }),
+      partialize: (state) => ({ user: state.user, session: state.session }),
     }
   )
 )
