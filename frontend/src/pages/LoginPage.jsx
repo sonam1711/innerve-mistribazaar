@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Link } from 'react-router-dom'
-import SupabaseEmailAuth from '../components/auth/SupabaseEmailAuth'
+import SupabasePasswordLogin from '../components/auth/SupabasePasswordLogin'
 import { useAuthStore } from '../store/authStore'
 
 const LoginPage = () => {
@@ -24,7 +24,7 @@ const LoginPage = () => {
         </div>
 
         <div className="bg-white p-8 rounded-lg shadow-md">
-          <SupabaseEmailAuth onLoginSuccess={handleLoginSuccess} />
+          <SupabasePasswordLogin onLoginSuccess={handleLoginSuccess} />
 
           <p className="mt-6 text-center text-gray-600">
             Don't have an account?{' '}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { UserPlus, Users, Hammer, Building2, ShoppingCart, MapPin } from 'lucide-react'
-import SupabaseEmailAuth from '../components/auth/SupabaseEmailAuth'
+import SupabasePasswordAuth from '../components/auth/SupabasePasswordAuth'
 import { useAuthStore } from '../store/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { getCurrentLocation } from '../utils/location'
@@ -11,9 +11,10 @@ import axios from 'axios'
 const RegisterPage = () => {
   const navigate = useNavigate()
   const { setSession, profile } = useAuthStore()
-  const [step, setStep] = useState('email') // 'email', 'profile', 'role-profile'
+  const [step, setStep] = useState('registration') // 'registration', 'role-profile'
   const [formData, setFormData] = useState({
     name: '',
+    phone: '',
     role: '',
     latitude: '',
     longitude: '',
@@ -21,17 +22,12 @@ const RegisterPage = () => {
   })
   const [profileData, setProfileData] = useState({})
   const [loading, setLoading] = useState(false)
+  const [session, setSessionData] = useState(null)
 
-  const handleEmailSuccess = async (session) => {
-    // Store Supabase session
-    await setSession(session)
-
-    // Move to profile completion step
-    setStep('profile')
-
-    // Auto-detect location
+  // Auto-detect location on component mount
+  useState(() => {
     detectLocation()
-  }
+  }, [])
 
   const detectLocation = async () => {
     try {
@@ -50,30 +46,54 @@ const RegisterPage = () => {
     }
   }
 
-  const handleProfileSubmit = async (e) => {
-    e.preventDefault()
+  const handleSignupSuccess = async (supabaseSession, userData) => {
+    // Store session and user data
+    setSessionData(supabaseSession)
+    setFormData(prev => ({
+      ...prev,
+      name: userData.name,
+      phone: userData.phone
+    }))
 
-    if (!formData.name || !formData.role) {
-      toast.error('Please fill in all required fields')
+    // If user hasn't selected a role yet, they need to
+    if (!formData.role) {
+      toast.info('Please select your role to continue')
       return
     }
 
-    // If customer, submit directly. Otherwise, go to role-specific profile
+    // Store Supabase session
+    await setSession(supabaseSession)
+
+    // If customer, submit profile directly. Otherwise, go to role-specific profile
     if (formData.role === 'CUSTOMER') {
-      await submitProfile()
+      await submitProfile(supabaseSession)
     } else {
       setStep('role-profile')
     }
   }
 
-  const submitProfile = async () => {
+  const handleRoleSelection = async (role) => {
+    setFormData({ ...formData, role })
+
+    // If we already have a session (user completed signup), proceed
+    if (session) {
+      await setSession(session)
+      if (role === 'CUSTOMER') {
+        await submitProfile(session)
+      } else {
+        setStep('role-profile')
+      }
+    }
+  }
+
+  const submitProfile = async (supabaseSession = session) => {
     setLoading(true)
     try {
-      const token = (await useAuthStore.getState().user?.session?.access_token)
-        || sessionStorage.getItem('supabase_token')
+      const token = supabaseSession?.access_token
 
       const payload = {
         name: formData.name,
+        phone: formData.phone,
         role: formData.role,
         latitude: formData.latitude || null,
         longitude: formData.longitude || null,
@@ -110,56 +130,19 @@ const RegisterPage = () => {
     await submitProfile()
   }
 
-  // Email Verification Step
-  if (step === 'email') {
+  // Registration Step - Collect all basic info
+  if (step === 'registration') {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4">
-        <div className="max-w-md w-full">
+        <div className="max-w-2xl w-full">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900">Create Account</h2>
             <p className="mt-2 text-gray-600">Join Mistribazar today</p>
           </div>
 
           <div className="bg-white p-8 rounded-lg shadow-md">
-            <SupabaseEmailAuth onLoginSuccess={handleEmailSuccess} />
-
-            <p className="mt-6 text-center text-gray-600">
-              Already have an account?{' '}
-              <Link to="/login" className="text-primary-600 hover:text-primary-700 font-semibold">
-                Login
-              </Link>
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Profile Completion Step
-  if (step === 'profile') {
-    return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4">
-        <div className="max-w-2xl w-full">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">Complete Your Profile</h2>
-            <p className="mt-2 text-gray-600">Tell us about yourself</p>
-          </div>
-
-          <div className="bg-white p-8 rounded-lg shadow-md">
-            <form onSubmit={handleProfileSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                  required
-                />
-              </div>
-
+            <div className="space-y-6">
+              {/* Role Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   I am a... *
@@ -176,7 +159,7 @@ const RegisterPage = () => {
                       <button
                         key={role.value}
                         type="button"
-                        onClick={() => setFormData({ ...formData, role: role.value })}
+                        onClick={() => handleRoleSelection(role.value)}
                         className={`p-4 border-2 rounded-lg transition-all text-left ${formData.role === role.value
                           ? 'border-primary-600 bg-primary-50'
                           : 'border-gray-200 hover:border-gray-300'
@@ -211,21 +194,18 @@ const RegisterPage = () => {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading || !formData.role}
-                className="w-full btn-primary flex items-center justify-center"
-              >
-                {loading ? (
-                  <LoadingSpinner size="sm" text="" />
-                ) : (
-                  <>
-                    <UserPlus className="w-5 h-5 mr-2" />
-                    {formData.role === 'CUSTOMER' ? 'Complete Registration' : 'Next: Profile Details'}
-                  </>
-                )}
-              </button>
-            </form>
+              {/* Password-based Signup Form */}
+              <SupabasePasswordAuth
+                onSignupSuccess={handleSignupSuccess}
+              />
+
+              <p className="mt-6 text-center text-gray-600">
+                Already have an account?{' '}
+                <Link to="/login" className="text-primary-600 hover:text-primary-700 font-semibold">
+                  Login
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>

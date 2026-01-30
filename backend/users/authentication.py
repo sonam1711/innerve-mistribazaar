@@ -33,6 +33,7 @@ class SupabaseAuthentication(authentication.BaseAuthentication):
             
             supabase_user_id = decoded.get('sub')
             email = decoded.get('email')
+            user_metadata = decoded.get('user_metadata', {})
             
             if not supabase_user_id:
                 raise exceptions.AuthenticationFailed('Invalid token: missing user ID')
@@ -45,13 +46,18 @@ class SupabaseAuthentication(authentication.BaseAuthentication):
                 supabase_id=supabase_user_id,
                 defaults={
                     'email': email,
-                    'name': decoded.get('user_metadata', {}).get('name', email.split('@')[0]),
+                    'name': user_metadata.get('name', email.split('@')[0]),
+                    'phone': user_metadata.get('phone'),
                 }
             )
             
-            # Update email if it changed in Supabase
+            # Update email and phone if they changed in Supabase
             if email and user.email != email:
                 user.email = email
+                user.save()
+            
+            if user_metadata.get('phone') and user.phone != user_metadata.get('phone'):
+                user.phone = user_metadata.get('phone')
                 user.save()
             
             return (user, token)
