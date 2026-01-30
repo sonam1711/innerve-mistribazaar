@@ -27,62 +27,62 @@ function App() {
       <div className="min-h-screen bg-gray-50">
         <Navbar />
         <Toaster position="top-right" />
-        
+
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <LoginPage />} />
           <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <RegisterPage />} />
-          
+
           {/* Protected routes */}
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <DashboardPage />
             </ProtectedRoute>
           } />
-          
+
           <Route path="/jobs" element={
             <ProtectedRoute>
               <JobsPage />
             </ProtectedRoute>
           } />
-          
+
           <Route path="/jobs/:id" element={
             <ProtectedRoute>
               <JobDetailPage />
             </ProtectedRoute>
           } />
-          
+
           <Route path="/jobs/create" element={
-            <ProtectedRoute requiredRole="CONSUMER">
+            <ProtectedRoute requiredRole="CUSTOMER">
               <CreateJobPage />
             </ProtectedRoute>
           } />
-          
+
           <Route path="/bids" element={
             <ProtectedRoute>
               <BidsPage />
             </ProtectedRoute>
           } />
-          
+
           <Route path="/budget-estimator" element={
             <ProtectedRoute>
               <BudgetEstimatorPage />
             </ProtectedRoute>
           } />
-          
+
           <Route path="/room-visualizer" element={
-            <ProtectedRoute requiredRole="CONSUMER">
+            <ProtectedRoute requiredRole="CUSTOMER">
               <RoomVisualizerPage />
             </ProtectedRoute>
           } />
-          
+
           <Route path="/profile" element={
             <ProtectedRoute>
               <ProfilePage />
             </ProtectedRoute>
           } />
-          
+
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
