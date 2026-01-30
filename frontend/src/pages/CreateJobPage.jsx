@@ -9,15 +9,15 @@ const CreateJobPage = () => {
   const navigate = useNavigate()
   const { createJob, isLoading } = useJobStore()
   const { user } = useAuthStore()
-  
+
   const [formData, setFormData] = useState({
-    job_type: 'REPAIR',
+    job_type: '',
     title: '',
     description: '',
     budget_min: '',
     budget_max: '',
-    latitude: user.latitude || '',
-    longitude: user.longitude || '',
+    latitude: user?.latitude || '',
+    longitude: user?.longitude || '',
     address: '',
     image_urls: [],
   })
@@ -65,15 +65,20 @@ const CreateJobPage = () => {
         <div className="card">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="label">Job Type</label>
+              <label className="label">Job Type *</label>
               <select
                 value={formData.job_type}
                 onChange={(e) => setFormData({ ...formData, job_type: e.target.value })}
                 className="input-field"
+                required
               >
-                <option value="REPAIR">Repair</option>
-                <option value="CONSTRUCTION">Construction</option>
+                <option value="">Select job type</option>
+                <option value="WORKER_JOB">Worker Job (Plumber, Electrician, Mason, etc.)</option>
+                <option value="CONSTRUCTOR_JOB">Constructor Job (Large construction projects)</option>
               </select>
+              <p className="mt-1 text-sm text-gray-500">
+                Worker jobs are for freelance workers. Constructor jobs are for large projects.
+              </p>
             </div>
 
             <div>
