@@ -9,9 +9,9 @@ class JobImageInline(admin.TabularInline):
 
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
-    list_display = ('title', 'consumer', 'job_type', 'status', 'budget_min', 'budget_max', 'created_at')
+    list_display = ('title', 'customer', 'job_type', 'status', 'budget_min', 'budget_max', 'created_at')
     list_filter = ('job_type', 'status', 'created_at')
-    search_fields = ('title', 'description', 'consumer__name')
+    search_fields = ('title', 'description', 'customer__name')
     inlines = [JobImageInline]
     readonly_fields = ('created_at', 'updated_at')
 

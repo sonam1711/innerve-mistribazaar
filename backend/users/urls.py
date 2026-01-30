@@ -1,25 +1,22 @@
 """
 URL configuration for users app
+Updated for Supabase authentication
 """
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
-    RegisterView, LoginView, UserProfileView, UserDetailView,
-    SendOTPView, VerifyOTPView, ResendOTPView
+    ProfileCompletionView, UserProfileView, UserDetailView, UserListView,
+    WorkerProfileUpdateView, TraderProfileUpdateView, ConstructorProfileUpdateView
 )
 
 urlpatterns = [
-    # Authentication
-    path('register/', RegisterView.as_view(), name='register'),
-    path('login/', LoginView.as_view(), name='login'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    
-    # OTP Authentication
-    path('send-otp/', SendOTPView.as_view(), name='send-otp'),
-    path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
-    path('resend-otp/', ResendOTPView.as_view(), name='resend-otp'),
-    
-    # User profile
+    # Profile management (after Supabase auth)
+    path('complete-profile/', ProfileCompletionView.as_view(), name='complete-profile'),
     path('profile/', UserProfileView.as_view(), name='user-profile'),
+    path('list/', UserListView.as_view(), name='user-list'),
     path('<int:pk>/', UserDetailView.as_view(), name='user-detail'),
+    
+    # Role-specific profile endpoints
+    path('worker-profile/', WorkerProfileUpdateView.as_view(), name='worker-profile'),
+    path('trader-profile/', TraderProfileUpdateView.as_view(), name='trader-profile'),
+    path('constructor-profile/', ConstructorProfileUpdateView.as_view(), name='constructor-profile'),
 ]
