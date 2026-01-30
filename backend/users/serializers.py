@@ -1,19 +1,19 @@
 """
-Serializers for User, MasonProfile, and TraderProfile
+Serializers for User, WorkerProfile, TraderProfile, and ConstructorProfile
+Updated for Supabase authentication
 """
 from rest_framework import serializers
-from django.contrib.auth.password_validation import validate_password
-from .models import User, MasonProfile, TraderProfile
+from .models import User, WorkerProfile, TraderProfile, ConstructorProfile
 
 
-class MasonProfileSerializer(serializers.ModelSerializer):
-    """Serializer for Mason profile"""
+class WorkerProfileSerializer(serializers.ModelSerializer):
+    """Serializer for Worker profile"""
     
     class Meta:
-        model = MasonProfile
+        model = WorkerProfile
         fields = [
-            'skills', 'daily_rate', 'experience_years', 'available_dates',
-            'completed_jobs', 'is_verified', 'is_available'
+            'skills', 'hourly_rate', 'daily_rate', 'experience_years', 
+            'available_dates', 'completed_jobs', 'is_verified', 'is_available'
         ]
         read_only_fields = ['completed_jobs', 'is_verified']
 
@@ -30,121 +30,133 @@ class TraderProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['completed_orders', 'is_verified']
 
 
+class ConstructorProfileSerializer(serializers.ModelSerializer):
+    """Serializer for Constructor profile"""
+    
+    class Meta:
+        model = ConstructorProfile
+        fields = [
+            'company_name', 'license_number', 'specializations', 
+            'experience_years', 'team_size', 'max_project_value',
+            'completed_projects', 'is_verified', 'is_available'
+        ]
+        read_only_fields = ['completed_projects', 'is_verified']
+
+
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User with nested profiles"""
     
-    mason_profile = MasonProfileSerializer(required=False)
-    trader_profile = TraderProfileSerializer(required=False)
+    worker_profile = WorkerProfileSerializer(required=False, read_only=True)
+    trader_profile = TraderProfileSerializer(required=False, read_only=True)
+    constructor_profile = ConstructorProfileSerializer(required=False, read_only=True)
     
     class Meta:
         model = User
         fields = [
-            'id', 'name', 'phone', 'role', 'latitude', 'longitude',
-            'rating', 'language', 'created_at', 'mason_profile', 'trader_profile'
+            'id', 'supabase_id', 'name', 'phone', 'role', 
+            'latitude', 'longitude', 'rating', 'language', 
+            'created_at', 'worker_profile', 'trader_profile', 'constructor_profile'
         ]
-        read_only_fields = ['id', 'rating', 'created_at']
+        read_only_fields = ['id', 'supabase_id', 'rating', 'created_at']
 
 
-class UserRegistrationSerializer(serializers.ModelSerializer):
-    """Serializer for user registration"""
+class ProfileCompletionSerializer(serializers.Serializer):
+    """
+    Serializer for completing user profile after Supabase authentication
+    Used after OTP verification to set role and profile details
+    """
+    name = serializers.CharField(max_length=255)
+    role = serializers.ChoiceField(choices=User.Role.choices)
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True)
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True)
+    language = serializers.CharField(max_length=50, default='English')
     
-    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
-    password2 = serializers.CharField(write_only=True, required=True)
-    
-    mason_profile = MasonProfileSerializer(required=False)
+    # Profile data based on role
+    worker_profile = WorkerProfileSerializer(required=False)
     trader_profile = TraderProfileSerializer(required=False)
-    
-    class Meta:
-        model = User
-        fields = [
-            'name', 'phone', 'password', 'password2', 'role',
-            'latitude', 'longitude', 'language',
-            'mason_profile', 'trader_profile'
-        ]
+    constructor_profile = ConstructorProfileSerializer(required=False)
     
     def validate(self, attrs):
-        """Validate password match and role-specific profiles"""
-        
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({"password": "Password fields didn't match."})
-        
+        """Validate role-specific profiles"""
         role = attrs.get('role')
         
-        # Validate role-specific profiles (only if data is provided)
-        # Allow empty profiles for all roles during registration
-        # Profile can be completed later
-        if role == 'MASON' and 'mason_profile' in attrs:
-            # Validate mason profile if provided
-            mason_data = attrs['mason_profile']
-            if not mason_data.get('skills') or not mason_data.get('daily_rate'):
+        # Profile is optional during initial registration
+        # Can be completed later
+        if role == User.Role.WORKER and 'worker_profile' in attrs:
+            worker_data = attrs['worker_profile']
+            if not worker_data.get('skills'):
                 raise serializers.ValidationError({
-                    "mason_profile": "Skills and daily rate are required for Mason profile."
+                    "worker_profile": "Skills are required for Worker profile."
                 })
         
-        if role == 'TRADER' and 'trader_profile' in attrs:
-            # Validate trader profile if provided
+        if role == User.Role.TRADER and 'trader_profile' in attrs:
             trader_data = attrs['trader_profile']
             if not trader_data.get('materials'):
                 raise serializers.ValidationError({
                     "trader_profile": "Materials are required for Trader profile."
                 })
         
+        if role == User.Role.CONSTRUCTOR and 'constructor_profile' in attrs:
+            constructor_data = attrs['constructor_profile']
+            if not constructor_data.get('specializations'):
+                raise serializers.ValidationError({
+                    "constructor_profile": "Specializations are required for Constructor profile."
+                })
+        
         return attrs
-    
-    def create(self, validated_data):
-        """Create user with nested profile"""
-        
-        validated_data.pop('password2')
-        mason_profile_data = validated_data.pop('mason_profile', None)
-        trader_profile_data = validated_data.pop('trader_profile', None)
-        
-        # Create user
-        user = User.objects.create_user(**validated_data)
-        
-        # Create role-specific profile
-        if mason_profile_data and user.role == 'MASON':
-            MasonProfile.objects.create(user=user, **mason_profile_data)
-        
-        if trader_profile_data and user.role == 'TRADER':
-            TraderProfile.objects.create(user=user, **trader_profile_data)
-        
-        return user
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating user profile"""
     
-    mason_profile = MasonProfileSerializer(required=False)
+    worker_profile = WorkerProfileSerializer(required=False)
     trader_profile = TraderProfileSerializer(required=False)
+    constructor_profile = ConstructorProfileSerializer(required=False)
     
     class Meta:
         model = User
         fields = [
             'name', 'latitude', 'longitude', 'language',
-            'mason_profile', 'trader_profile'
+            'worker_profile', 'trader_profile', 'constructor_profile'
         ]
     
     def update(self, instance, validated_data):
         """Update user and nested profiles"""
         
-        mason_profile_data = validated_data.pop('mason_profile', None)
+        worker_profile_data = validated_data.pop('worker_profile', None)
         trader_profile_data = validated_data.pop('trader_profile', None)
+        constructor_profile_data = validated_data.pop('constructor_profile', None)
         
         # Update user fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
         
-        # Update mason profile
-        if mason_profile_data and hasattr(instance, 'mason_profile'):
-            for attr, value in mason_profile_data.items():
-                setattr(instance.mason_profile, attr, value)
-            instance.mason_profile.save()
+        # Update or create worker profile
+        if worker_profile_data and instance.role == User.Role.WORKER:
+            if hasattr(instance, 'worker_profile'):
+                for attr, value in worker_profile_data.items():
+                    setattr(instance.worker_profile, attr, value)
+                instance.worker_profile.save()
+            else:
+                WorkerProfile.objects.create(user=instance, **worker_profile_data)
         
-        # Update trader profile
-        if trader_profile_data and hasattr(instance, 'trader_profile'):
-            for attr, value in trader_profile_data.items():
-                setattr(instance.trader_profile, attr, value)
-            instance.trader_profile.save()
+        # Update or create trader profile
+        if trader_profile_data and instance.role == User.Role.TRADER:
+            if hasattr(instance, 'trader_profile'):
+                for attr, value in trader_profile_data.items():
+                    setattr(instance.trader_profile, attr, value)
+                instance.trader_profile.save()
+            else:
+                TraderProfile.objects.create(user=instance, **trader_profile_data)
+        
+        # Update or create constructor profile
+        if constructor_profile_data and instance.role == User.Role.CONSTRUCTOR:
+            if hasattr(instance, 'constructor_profile'):
+                for attr, value in constructor_profile_data.items():
+                    setattr(instance.constructor_profile, attr, value)
+                instance.constructor_profile.save()
+            else:
+                ConstructorProfile.objects.create(user=instance, **constructor_profile_data)
         
         return instance

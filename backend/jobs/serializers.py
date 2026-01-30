@@ -1,5 +1,6 @@
 """
 Serializers for Job and JobImage
+Updated for simplified job system (no bidding)
 """
 from rest_framework import serializers
 from .models import Job, JobImage
@@ -19,8 +20,7 @@ class JobSerializer(serializers.ModelSerializer):
     """Serializer for Job with nested images"""
     
     images = JobImageSerializer(many=True, read_only=True)
-    consumer_details = UserSerializer(source='consumer', read_only=True)
-    selected_provider_details = UserSerializer(source='selected_provider', read_only=True)
+    customer_details = UserSerializer(source='customer', read_only=True)
     
     # For creating jobs with images
     image_urls = serializers.ListField(
@@ -32,12 +32,12 @@ class JobSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
         fields = [
-            'id', 'consumer', 'job_type', 'title', 'description',
+            'id', 'customer', 'job_type', 'title', 'description',
             'budget_min', 'budget_max', 'latitude', 'longitude', 'address',
-            'status', 'selected_provider', 'created_at', 'updated_at', 'deadline',
-            'images', 'consumer_details', 'selected_provider_details', 'image_urls'
+            'status', 'created_at', 'updated_at', 'deadline',
+            'images', 'customer_details', 'image_urls'
         ]
-        read_only_fields = ['id', 'consumer', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'customer', 'created_at', 'updated_at']
     
     def create(self, validated_data):
         """Create job with images"""
@@ -55,32 +55,27 @@ class JobSerializer(serializers.ModelSerializer):
 class JobListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for job listings"""
     
-    consumer_name = serializers.CharField(source='consumer.name', read_only=True)
+    customer_name = serializers.CharField(source='customer.name', read_only=True)
+    customer_role = serializers.CharField(source='customer.role', read_only=True)
     image_count = serializers.SerializerMethodField()
-    bid_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Job
         fields = [
             'id', 'title', 'job_type', 'status', 'budget_min', 'budget_max',
-            'latitude', 'longitude', 'consumer_name', 'created_at',
-            'image_count', 'bid_count'
+            'latitude', 'longitude', 'customer_name', 'customer_role',
+            'created_at', 'image_count'
         ]
     
     def get_image_count(self, obj):
         return obj.images.count()
-    
-    def get_bid_count(self, obj):
-        return obj.bids.count()
 
 
 class JobDetailSerializer(serializers.ModelSerializer):
     """Detailed job serializer with all information"""
     
     images = JobImageSerializer(many=True, read_only=True)
-    consumer_details = UserSerializer(source='consumer', read_only=True)
-    selected_provider_details = UserSerializer(source='selected_provider', read_only=True)
-    bid_count = serializers.SerializerMethodField()
+    customer_details = UserSerializer(source='customer', read_only=True)
     
     class Meta:
         model = Job
@@ -88,9 +83,47 @@ class JobDetailSerializer(serializers.ModelSerializer):
             'id', 'job_type', 'title', 'description',
             'budget_min', 'budget_max', 'latitude', 'longitude', 'address',
             'status', 'deadline', 'created_at', 'updated_at',
-            'consumer_details', 'selected_provider_details',
-            'images', 'bid_count'
+            'customer_details', 'images'
+        ]
+
+
+class JobCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating jobs"""
+    
+    image_urls = serializers.ListField(
+        child=serializers.URLField(),
+        write_only=True,
+        required=False
+    )
+    
+    class Meta:
+        model = Job
+        fields = [
+            'job_type', 'title', 'description',
+            'budget_min', 'budget_max', 'latitude', 'longitude',
+            'address', 'deadline', 'image_urls'
         ]
     
-    def get_bid_count(self, obj):
-        return obj.bids.count()
+    def validate(self, attrs):
+        """Validate budget and job type"""
+        if attrs['budget_min'] > attrs['budget_max']:
+            raise serializers.ValidationError({
+                "budget": "Minimum budget cannot be greater than maximum budget."
+            })
+        return attrs
+    
+    def create(self, validated_data):
+        """Create job with images and set customer from request context"""
+        image_urls = validated_data.pop('image_urls', [])
+        
+        # Get customer from request context
+        request = self.context.get('request')
+        validated_data['customer'] = request.user
+        
+        job = Job.objects.create(**validated_data)
+        
+        # Create job images
+        for url in image_urls:
+            JobImage.objects.create(job=job, image_url=url)
+        
+        return job
