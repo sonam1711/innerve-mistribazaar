@@ -148,6 +148,9 @@ CLOUDINARY_STORAGE = {
 IMAGE_TO_IMAGE_API_KEY = config('IMAGE_TO_IMAGE_API_KEY', default='')
 IMAGE_TO_IMAGE_API_URL = config('IMAGE_TO_IMAGE_API_URL', default='')
 
+# Google Gemini API for 3D House Designer
+GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+
 # SMS Settings
 SMS_PROVIDER = config('SMS_PROVIDER', default='console')  # 'msg91', 'twilio', or 'console'
 
