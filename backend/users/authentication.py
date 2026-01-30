@@ -15,12 +15,21 @@ class SupabaseAuthentication(authentication.BaseAuthentication):
     """
     
     def authenticate(self, request):
-        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        # Try both META (WSGI standard) and headers (DRF/ASGI)
+        auth_header = request.META.get('HTTP_AUTHORIZATION') or request.headers.get('Authorization')
+        
+        print(f"DEBUG: Auth Header: {auth_header[:20] if auth_header else 'None'}...")
+        
+        if not auth_header:
+            print("DEBUG: No auth header found")
+            return None
         
         if not auth_header.startswith('Bearer '):
+            print("DEBUG: Invalid header prefix")
             return None
         
         token = auth_header.split(' ')[1]
+        print(f"DEBUG: Token found: {token[:10]}...")
         
         try:
             # Decode and verify the Supabase JWT token
@@ -92,4 +101,5 @@ class SupabaseAuthentication(authentication.BaseAuthentication):
         except jwt.InvalidTokenError as e:
             raise exceptions.AuthenticationFailed(f'Invalid token: {str(e)}')
         except Exception as e:
+            print(f"DEBUG: Auth Exception: {str(e)}")
             raise exceptions.AuthenticationFailed(f'Authentication failed: {str(e)}')
