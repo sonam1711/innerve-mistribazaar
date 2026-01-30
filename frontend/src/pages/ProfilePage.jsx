@@ -9,6 +9,7 @@ const ProfilePage = () => {
   const { profile, updateProfile } = useAuthStore()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [formData, setFormData] = useState({
     name: profile?.name || '',
     latitude: profile?.latitude || '',
@@ -31,6 +32,7 @@ const ProfilePage = () => {
         })
       } catch (error) {
         console.error('Failed to fetch profile:', error)
+        setError(error.response?.data?.error || error.message || 'Failed to load profile')
       }
     }
     fetchProfile()
@@ -47,6 +49,23 @@ const ProfilePage = () => {
       toast.error('Failed to update profile')
     }
     setIsLoading(false)
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-500 text-xl font-semibold mb-2">Error loading profile</p>
+          <p className="text-gray-600">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (!profile) {
