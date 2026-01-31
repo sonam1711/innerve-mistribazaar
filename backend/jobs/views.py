@@ -32,13 +32,17 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 class JobCreateView(generics.CreateAPIView):
     """
-    Create a new job (Consumer only)
+    Create a new job (Consumer, Contractor, or Mistri)
     """
     
     serializer_class = JobSerializer
-    permission_classes = [IsAuthenticated, IsConsumer]
+    permission_classes = [IsAuthenticated]
     
     def perform_create(self, serializer):
+        # Only CONSUMER can create jobs (post work requests)
+        if self.request.user.role != 'CONSUMER':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Only consumers can post jobs')
         serializer.save(consumer=self.request.user)
 
 

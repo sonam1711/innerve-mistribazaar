@@ -11,7 +11,7 @@ from .budget_estimator import BudgetEstimator
 from .recommender import Recommender
 from .room_visualizer import RoomVisualizer
 from .house_designer import HouseDesigner
-from .blender_script_generator import blender_generator
+from .blender_script_generator import get_blender_generator
 from bids.models import Bid
 from jobs.models import Job
 
@@ -386,11 +386,14 @@ class Generate3DHouseView(APIView):
             
             # Generate Blender script using Gemini
             house_data = request.data
-            script = blender_generator.generate_script(house_data)
+            
+            # Get the generator instance (lazy initialization)
+            blender_gen = get_blender_generator()
+            script = blender_gen.generate_script(house_data)
             
             # Save the script
             filename = f"house_model_{request.user.id}_{house_data.get('plot_length')}x{house_data.get('plot_width')}.py"
-            file_path = blender_generator.save_script(script, filename)
+            file_path = blender_gen.save_script(script, filename)
             
             # Return script and download URL
             return Response({
@@ -402,12 +405,16 @@ class Generate3DHouseView(APIView):
             }, status=status.HTTP_200_OK)
         
         except ValueError as e:
+            import traceback
+            traceback.print_exc()  # Print full traceback to console
             return Response({
                 'success': False,
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
         
         except Exception as e:
+            import traceback
+            traceback.print_exc()  # Print full traceback to console
             return Response({
                 'success': False,
                 'error': f'Failed to generate 3D model: {str(e)}'

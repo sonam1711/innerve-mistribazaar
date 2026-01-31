@@ -254,17 +254,24 @@ class JobAcceptanceListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         
+        print(f"[JobAcceptanceListView] User: {user.phone}, Role: {user.role}")
+        
         if user.role == 'CONSUMER':
             # Show acceptances on user's jobs
             job_id = self.request.query_params.get('job_id', None)
             if job_id:
                 return JobAcceptance.objects.filter(job_id=job_id, job__consumer=user)
-            return JobAcceptance.objects.filter(job__consumer=user).order_by('-created_at')
+            acceptances = JobAcceptance.objects.filter(job__consumer=user).order_by('-created_at')
+            print(f"[JobAcceptanceListView] Consumer acceptances count: {acceptances.count()}")
+            return acceptances
         
         elif user.role == 'MISTRI':
             # Show mistri's own acceptances
-            return JobAcceptance.objects.filter(mistri=user).order_by('-created_at')
+            acceptances = JobAcceptance.objects.filter(mistri=user).order_by('-created_at')
+            print(f"[JobAcceptanceListView] Mistri acceptances count: {acceptances.count()}")
+            return acceptances
         
+        print(f"[JobAcceptanceListView] No matching role, returning empty queryset")
         return JobAcceptance.objects.none()
 
 

@@ -45,15 +45,15 @@ class JobSerializer(serializers.ModelSerializer):
         job_type = attrs.get('job_type')
         
         # PROJECT category should have construction-related types
-        if category == 'PROJECT' and job_type not in ['NEW_CONSTRUCTION', 'RENOVATION']:
+        if category == 'PROJECT' and job_type not in ['CONSTRUCTION', 'RENOVATION']:
             raise serializers.ValidationError(
-                "PROJECT category should have NEW_CONSTRUCTION or RENOVATION type."
+                "PROJECT category should have CONSTRUCTION or RENOVATION type."
             )
         
         # JOB category should have repair/maintenance types
-        if category == 'JOB' and job_type in ['NEW_CONSTRUCTION']:
+        if category == 'JOB' and job_type in ['CONSTRUCTION']:
             raise serializers.ValidationError(
-                "JOB category cannot have NEW_CONSTRUCTION type."
+                "JOB category cannot have CONSTRUCTION type."
             )
         
         return attrs

@@ -7,7 +7,15 @@ import os
 import logging
 from typing import Dict, Optional
 from django.conf import settings
-import google.generativeai as genai
+
+try:
+    # Try new google.genai package first (recommended)
+    from google import genai
+    USE_NEW_SDK = True
+except ImportError:
+    # Fallback to old package
+    import google.generativeai as genai
+    USE_NEW_SDK = False
 
 
 logger = logging.getLogger(__name__)
@@ -70,8 +78,24 @@ Generate a script following this structure based on user requirements."""
         if not api_key:
             raise ValueError("GEMINI_API_KEY not configured in settings")
         
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        try:
+            if USE_NEW_SDK:
+                # New google.genai SDK
+                self.client = genai.Client(api_key=api_key)
+                self.model_name = 'gemini-2.0-flash-exp'  # Use v1 API model
+                self.model = None  # Will use client.models.generate_content instead
+                logger.info("Using new google.genai SDK")
+            else:
+                # Old google.generativeai SDK (deprecated)
+                genai.configure(api_key=api_key)
+                # Use v1 API model name (without 'models/' prefix)
+                self.model_name = 'gemini-1.5-pro'  # Use stable v1 model
+                self.model = genai.GenerativeModel(self.model_name)
+                self.client = None
+                logger.info("Using old google.generativeai SDK")
+        except Exception as e:
+            logger.error(f"Failed to initialize Gemini API: {str(e)}")
+            raise
     
     def generate_script(self, house_data: Dict) -> str:
         """
@@ -90,19 +114,34 @@ Generate a script following this structure based on user requirements."""
             # Combine system prompt and user prompt
             full_prompt = f"{self.SYSTEM_PROMPT}\n\nUSER REQUIREMENTS:\n{user_prompt}\n\nGenerate the Python script now:"
             
-            # Call Gemini API
-            response = self.model.generate_content(
-                full_prompt,
-                generation_config={
-                    'temperature': 0.4,  # Lower temperature for more deterministic code
-                    'top_p': 0.8,
-                    'top_k': 40,
-                    'max_output_tokens': 4096,
-                }
-            )
+            # Call Gemini API based on SDK version
+            if USE_NEW_SDK and self.client:
+                # New google.genai SDK
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=full_prompt,
+                    config={
+                        'temperature': 0.4,
+                        'top_p': 0.8,
+                        'top_k': 40,
+                        'max_output_tokens': 4096,
+                    }
+                )
+                script = response.text
+            else:
+                # Old google.generativeai SDK
+                response = self.model.generate_content(
+                    full_prompt,
+                    generation_config={
+                        'temperature': 0.4,
+                        'top_p': 0.8,
+                        'top_k': 40,
+                        'max_output_tokens': 4096,
+                    }
+                )
+                script = response.text
             
             # Extract and sanitize the script
-            script = response.text
             sanitized_script = self._sanitize_script(script)
             
             # Validate basic syntax
@@ -111,6 +150,10 @@ Generate a script following this structure based on user requirements."""
             
             logger.info("Successfully generated Blender script")
             return sanitized_script
+        
+        except Exception as e:
+            logger.error(f"Error generating Blender script: {str(e)}")
+            raise
         
         except Exception as e:
             logger.error(f"Error generating Blender script: {str(e)}")
@@ -288,5 +331,19 @@ Generate a script following this structure based on user requirements."""
         return file_path
 
 
-# Singleton instance
-blender_generator = BlenderScriptGenerator()
+# Singleton instance with lazy initialization
+_blender_generator = None
+
+def get_blender_generator():
+    """Get or create the singleton instance"""
+    global _blender_generator
+    if _blender_generator is None:
+        _blender_generator = BlenderScriptGenerator()
+    return _blender_generator
+
+# Legacy compatibility
+blender_generator = None
+try:
+    blender_generator = BlenderScriptGenerator()
+except Exception as e:
+    logger.warning(f"Could not initialize blender_generator at import time: {e}")

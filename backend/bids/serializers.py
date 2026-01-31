@@ -103,8 +103,8 @@ class JobAcceptanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobAcceptance
         fields = [
-            'id', 'job', 'mistri', 'status', 'message', 
-            'proposed_start_date', 'created_at', 'updated_at',
+            'id', 'job', 'mistri', 'status', 'note', 
+            'created_at', 'updated_at',
             'mistri_details', 'job_details'
         ]
         read_only_fields = ['id', 'mistri', 'created_at', 'updated_at']
@@ -135,16 +135,25 @@ class JobAcceptanceSerializer(serializers.ModelSerializer):
 class JobAcceptanceListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for job acceptance listings"""
     
-    mistri_name = serializers.CharField(source='mistri.name', read_only=True)
-    mistri_rating = serializers.DecimalField(source='mistri.rating', max_digits=3, decimal_places=2, read_only=True)
-    job_title = serializers.CharField(source='job.title', read_only=True)
+    mistri_name = serializers.SerializerMethodField()
+    mistri_rating = serializers.SerializerMethodField()
+    job_title = serializers.SerializerMethodField()
     
     class Meta:
         model = JobAcceptance
         fields = [
             'id', 'job', 'job_title', 'mistri', 'mistri_name', 'mistri_rating',
-            'status', 'proposed_start_date', 'created_at'
+            'status', 'note', 'created_at'
         ]
+    
+    def get_mistri_name(self, obj):
+        return obj.mistri.name if obj.mistri else None
+    
+    def get_mistri_rating(self, obj):
+        return float(obj.mistri.rating) if obj.mistri else 0.0
+    
+    def get_job_title(self, obj):
+        return obj.job.title if obj.job else None
 
 
 class JobAcceptanceUpdateSerializer(serializers.ModelSerializer):

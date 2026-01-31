@@ -1,23 +1,34 @@
 # Mistribazar Codebase Guide for AI Agents
 
 ## Project Overview
-Mistribazar is a construction marketplace connecting consumers with masons/traders through role-based authentication, location-based discovery, bidding system, and AI features (budget estimation, room visualization).
+Mistribazar is a construction marketplace connecting consumers with masons/traders through role-based authentication, location-based discovery, bidding system, and AI features (budget estimation, 3D house modeling, room visualization).
 
 **Architecture**: Django REST API (backend) + React/Vite SPA (frontend)
 
 **Tech Stack**:
-- Backend: Django 4.2.7 + DRF + SimpleJWT + PostgreSQL/SQLite
-- Frontend: React 18 + Vite 7 + React Router 6 + Zustand 4 + Tailwind CSS 3
-- Features: Phone OTP auth, location-based search (Haversine), multi-language (10 Indian languages), rule-based AI tools
+- Backend: Django 4.2.7 + DRF + SimpleJWT + PostgreSQL/SQLite + Gemini API
+- Frontend: React 18 + TypeScript + Vite 7 + React Router 6 + Zustand 4 + Tailwind CSS 3
+- Features: Phone OTP auth, location-based search (Haversine), multi-language (10 Indian languages with live location detection), AI-powered 3D house designer with Blender script generation
+
+**Frontend Structure**: 
+- **Primary Frontend**: `frontend-new/` - TypeScript React app (ACTIVELY MAINTAINED)
+  - Complete implementation with all backend features
+  - Multi-language support (10 Indian languages) with live location-based detection and language switcher
+  - Real-time GPS location detection using browser Geolocation API
+  - Real-time updates synchronized with backend/database changes
+  - MISTRI job acceptance workflow (separate from bidding)
+  - Rating system fully integrated
+- Legacy: `src/` - Original JavaScript version, `mistribazaar-innerve/` - alternative builds
+- Always work in `frontend-new/` unless specifically told otherwise
 
 ## Critical Architecture Patterns
 
 ### 1. Role-Based Access Control (RBAC)
-Three roles define all interactions: `CONSUMER`, `MASON`, `TRADER`
+Four roles define all interactions: `CONSUMER`, `CONTRACTOR`, `TRADER`, `MISTRI`
 
 **Backend**: Custom permission classes in `backend/users/permissions.py`
 - Use `IsConsumer`, `IsMason`, `IsMasonOrTrader` decorators on views
-- Example: Only consumers create jobs, only mason/traders submit bids
+- Example: Only consumers create jobs, contractors/traders bid on PROJECTS, mistri accept/reject JOBS
 - Stack multiple permissions: `[IsAuthenticated, IsConsumer]` for enforcement
 - Custom auth backend in `backend/users/backends.py` handles phone-based login
 ```python
@@ -25,8 +36,9 @@ permission_classes = [IsAuthenticated, IsConsumer]
 ```
 
 **Frontend**: Routes protected via `ProtectedRoute` component with role checks
-- User role stored in Zustand auth store (`frontend/src/store/authStore.js`) with localStorage persistence
+- User role stored in Zustand auth store (`frontend-new/src/store/authStore.ts`) with localStorage persistence
 - ProtectedRoute enforces `requiredRole` parameter on sensitive routes like CreateJobPage
+- **MISTRI vs CONTRACTOR**: MISTRI directly accept/reject small jobs (no bidding), CONTRACTOR bid on large projects
 
 ### 2. Phone-Based Authentication with OTP
 Custom authentication using phone numbers (no email/username)
@@ -61,45 +73,50 @@ radius_km = request.query_params.get('radius', 50)
 ```
 - **Production Note**: Current implementation loops through queryset; use PostGIS for production-scale filtering
 
-**Automatic Location Detection** (`frontend/src/utils/location.js`):
-- Browser Geolocation API → GPS coordinates
+**Automatic Location Detection** (implemented in frontend-new):
+- Browser Geolocation API → GPS coordinates (supports live location)
 - Reverse geocoding → Indian state → regional language  
 - Maps states to languages: Tamil Nadu→Tamil, Maharashtra→Marathi, etc.
 - Fallback to Hindi if detection fails
+- **Live switching**: Users can change language based on current location in real-time
 
 **Data Model**: `Job` and `User` models both store `latitude`/`longitude` fields with database indexes
 
 ### 4. Multi-Language Support
 UI automatically translates to user's regional language based on registration location
 
-**Translation System** (`frontend/src/utils/translations.js`):
+**Translation System** (implemented in `frontend-new/` via context/utilities):
 - Supports 10 Indian languages (Hindi, Tamil, Telugu, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, English)
 - Usage: `translations[language][key]` for all UI text
 - Language stored in `User.language` field during registration
+- **Live location switching**: Users can update language based on current GPS location
+- Context-based implementation for reactive UI updates
 
 ### 5. Zustand State Management (Frontend)
-Three primary stores in `frontend/src/store/` (JavaScript files with `.js` extension):
-- `authStore.js`: User authentication, JWT tokens (persisted to localStorage via `persist` middleware)
-- `jobStore.js`: Job listings, filtering
-- `bidStore.js`: Bid management
+Three primary stores in `frontend-new/src/store/` (TypeScript files with `.ts` extension):
+- `authStore.ts`: User authentication, JWT tokens (persisted to localStorage via `persist` middleware)
+- `jobStore.ts`: Job listings, filtering with location-based queries
+- `bidStore.ts`: Bid management and recommendation integration
 
 **Pattern**: Store methods handle API calls AND state updates in one place
-```javascript
-login: async (phone, password) => {
-  const response = await api.post('/users/login/', { phone, password })
+```typescript
+login: async (phone: string, password: string) => {
+  const response = await userAPI.login(phone, password)
+  const { user, tokens } = response.data
   // Store tokens in localStorage
   localStorage.setItem('access_token', tokens.access)
-  set({ user, tokens })
+  set({ user, isAuthenticated: true })
 }
 ```
 
 **Data Flow Pattern - How stores work with components**:
 1. Component calls `useAuthStore()` or `useJobStore()` hook to get state + methods
-2. Store method makes API call via centralized `api.js` (which attaches JWT token)
+2. Store method makes API call via centralized `api.ts` (which attaches JWT token)
 3. Store updates Zustand state via `set({ ... })`
 4. Component re-renders with new state
 5. Toast notifications handle success/error feedback
-6. **Important**: Never call API directly from components - always go through stores or centralized `api.js`
+6. **Real-time sync**: Frontend automatically updates with backend/database changes
+7. **Important**: Never call API directly from components - always go through stores or centralized `api.ts`
 
 **localStorage Persistence**:
 - `authStore` uses `persist` middleware from Zustand
@@ -108,7 +125,7 @@ login: async (phone, password) => {
 - **Logout**: Must manually clear tokens with `localStorage.removeItem('access_token')` (done in store's logout method)
 
 ### 6. API Architecture
-**Centralized Axios Instance** (`frontend/src/utils/api.js`):
+**Centralized Axios Instance** (`frontend-new/src/utils/api.ts`):
 - **Request interceptor**: Attaches JWT from localStorage to `Authorization: Bearer <token>` header
   - Automatically sends `Content-Type: application/json` on all requests
   - Silently skips auth header if no token (for public endpoints like login, register)
@@ -190,7 +207,7 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser  # Run once per machine
 
 **Frontend**:
 ```powershell
-cd frontend
+cd frontend-new
 # Install dependencies (first time or after updates)
 npm install
 
@@ -303,15 +320,18 @@ def get_queryset(self):
 - **Pagination**: DRF pagination enabled, 20 items per page by default
 
 ### Frontend
-- **Routing**: React Router v6 with nested routes in `App.jsx`
+- **Routing**: React Router v6 with nested routes in `App.tsx`
 - **Forms**: Controlled components with local state, validation before API call
 - **Error Handling**: `react-hot-toast` for all user-facing messages
 - **Styling**: Tailwind CSS utility classes, mobile-first responsive design
 - **Icons**: Lucide React (`lucide-react` package)
 - **Build Tool**: Vite with React plugin, ESLint for linting
 - **Bundle Command**: `npm run build` → outputs to `dist/` folder
+- **TypeScript**: Strict type checking enabled, interfaces in store files
+- **Real-time Updates**: Synchronized with backend/database changes (polling/WebSocket)
+- **Multi-language**: Context-based with live location detection for language switching
 
-**Frontend Route Structure** (`src/App.jsx`):
+**Frontend Route Structure** (`src/App.tsx`):
 - Public routes: `/`, `/login`, `/register`
 - Protected routes with `ProtectedRoute` component:
   - `/dashboard` (all authenticated users)
@@ -319,14 +339,14 @@ def get_queryset(self):
   - `/jobs` (all authenticated)
   - `/bids` (MASON/TRADER only)
   - `/profile` (all authenticated)
-  - `/budget-estimator`, `/room-visualizer` (AI features, requires auth)
+  - `/budget-estimator`, `/room-visualizer`, `/3d-house-designer` (AI features, requires auth)
 - **Page files**: Each route maps to a page component in `src/pages/`
   - Pages use stores (`authStore`, `jobStore`, `bidStore`) for data fetching
   - Pages handle local form state separately from global stores
 
 ### File Naming
 - Backend: `snake_case` (Django convention)
-- Frontend: `PascalCase` for components (`.jsx`), `camelCase` for utilities
+- Frontend: `PascalCase` for components (`.tsx`), `camelCase` for utilities (`.ts`)
 
 ### Dependencies
 **Backend** (`requirements.txt`):
@@ -363,6 +383,23 @@ Conversational flow collecting work type, area, quality, city tier, urgency
 - Generates: floor plans, room-wise area allocation, cost estimates, architectural recommendations
 - **Image generation**: Uses PIL to create visual floor plans (base64 encoded PNGs)
 - **Special features detection**: Vastu compliance, eco-friendly, smart home from free-text input
+
+### 3D House Designer with Blender (`backend/ai_engine/blender_script_generator.py`)
+**Gemini API-powered Blender Python script generation**
+- API: `POST /api/ai/3d-house/generate/` → Returns complete Blender Python script
+- **Download endpoint**: `GET /api/ai/3d-house/download/<filename>/`
+- **Script storage**: Saves to `media/blender_scripts/` with unique filenames
+- **Technology**: Uses Google Gemini API (supports both old and new SDK)
+  - Old SDK: `google.generativeai` package
+  - New SDK: `google.genai` package (auto-detected and preferred)
+- **Environment**: Requires `GEMINI_API_KEY` in backend `.env` file
+- **Script features**:
+  - Generates complete `bpy` (Blender Python) scripts
+  - Creates walls, floors, rooms, doors, windows
+  - Sets up camera angles and lighting
+  - Ready to execute in Blender 3.0+
+- **User workflow**: Survey → Generate → Download → Import in Blender
+- **Critical**: Script output is pure Python code (no markdown formatting)
 
 ### Recommender (`backend/ai_engine/recommender.py`)
 Compares bids using weighted scoring:
@@ -426,6 +463,7 @@ DATABASE_ENGINE=                   # django.db.backends.sqlite3 or postgresql
 DATABASE_NAME=db.sqlite3           # SQLite file or PostgreSQL DB name
 SMS_PROVIDER=                      # msg91, twilio, or console
 MSG91_AUTH_KEY=                    # SMS provider credentials
+GEMINI_API_KEY=                    # Google Gemini API for 3D Blender script generation
 CLOUDINARY_CLOUD_NAME=             # For room visualizer image uploads
 CLOUDINARY_API_KEY=                # Cloudinary API credentials
 CLOUDINARY_API_SECRET=             # Cloudinary secret
@@ -433,14 +471,14 @@ IMAGE_TO_IMAGE_API_KEY=            # Optional: Stability AI/Replicate for room v
 IMAGE_TO_IMAGE_API_URL=            # Image generation API endpoint
 ```
 
-**Frontend** (`.env` in `frontend/` directory - optional, has defaults):
+**Frontend** (`.env` in `frontend-new/` directory - optional, has defaults):
 ```env
 VITE_API_URL=http://localhost:8000/api    # Backend API base URL (dev: leave empty to use proxy)
 ```
 
 **Environment Loading**:
-- Backend: Uses `python-decouple` package to read `.env` file (see [backend/config/settings.py](backend/config/settings.py#L1))
-- Frontend: Uses Vite's `import.meta.env` for env vars prefixed with `VITE_` (see [frontend/vite.config.js](frontend/vite.config.js))
+- Backend: Uses `python-decouple` package to read `.env` file in backend/config/settings.py
+- Frontend: Uses Vite's `import.meta.env` for env vars prefixed with `VITE_` in frontend-new/vite.config.ts
 - **Production Note**: Set env vars via system/container environment, not .env files
 
 **Cache Backend for OTP**:
@@ -480,12 +518,13 @@ VITE_API_URL=http://localhost:8000/api    # Backend API base URL (dev: leave emp
 ### Adding New API Endpoints
 1. Create view in appropriate app's `views.py`
 2. Add URL pattern to app's `urls.py`
-3. Add API method to `frontend/src/utils/api.js`
+3. Add API method to `frontend-new/src/utils/api.ts`
 4. Use in component via store or direct API call
 
 ### Adding New Languages
-1. Add translations to `frontend/src/utils/translations.js`
-2. Update region mapping in `frontend/src/utils/location.js`
+1. Add translations to `frontend-new/src/contexts/LanguageContext.tsx` or translation utilities
+2. Update region mapping in location detection utility (live GPS to language mapping)
+3. Ensure language options appear in language switcher component
 
 ### Database Schema Changes
 1. Modify models in app's `models.py`
